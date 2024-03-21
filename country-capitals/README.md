@@ -1,4 +1,4 @@
-# Demonstration of an ARG Chatbot Using PyMuPDF
+# Demonstration of an RAG Chatbot Using PyMuPDF
 
 This script starts an OpenAI RAG (Retrieval Augmented Generation) chatbot.
 
