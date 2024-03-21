@@ -18,6 +18,7 @@ a meaningful response.
 """
 
 import fitz
+import textwrap
 from openai import OpenAI
 
 # Example for reading the OpenAI API key
@@ -78,5 +79,6 @@ while True:
     prompt = pdf_text + "\n\n" + user_query
     response = generate_response_with_chatgpt(prompt)
     print("Response:\n")
-    print(response)
+    for line in textwrap.wrap(response, width=70):
+        print(line)
     print("-" * 10)
