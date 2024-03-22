@@ -29,33 +29,69 @@ client = OpenAI(api_key=API_KEY)
 
 
 def extract_text_from_pdf(pdf_path):
-    """Read table content only all pages in the document."""
+    """Read table content only of all pages in the document.
+
+    Chatbots typically have limitations on the amount of data that can
+    can be passed in (number of tokens).
+
+    We therefore only extract information on the PDF's pages that are
+    contained in tables.
+    As we even know that the PDF actually contains ONE logical table
+    that has been segmented for reporting purposes, our approach
+    is the following:
+    * The cell contents of each table row are joined into one string
+      separated by ";".
+    * If table segment on the first page also has an external header row,
+      join the column names separated by ";". Also ignore any subsequent
+      table row that equals the header string. This deals with table
+      header repeat situations.
+    """
+    # open document
     doc = fitz.open(pdf_path)
-    text = ""
-    lines = 0  # counts table rows
-    header = ""
-    for page in doc:  # only read the table rows
-        tabs = page.find_tables()
-        for t in tabs:
-            # on first page prepend an external header where present
-            if page.number == 0 and t.header.external:
+
+    text = ""  # we will return this string
+    row_count = 0  # counts table rows
+    header = ""  # overall table header: output this only once!
+
+    # iterate over the pages
+    for page in doc:
+        # only read the table rows on each page, ignore other content
+        tables = page.find_tables()  # a "TableFinder" object
+        for table in tables:
+
+            # on first page extract external column names if present
+            if page.number == 0 and table.header.external:
+                # build the overall table header string
+                # technical note: incomplete / complex tables may have
+                # "None" in some header cells. Just use empty string then.
                 header = (
-                    ";".join([n if n is not None else "" for n in t.header.names])
+                    ";".join(
+                        [
+                            name if name is not None else ""
+                            for name in table.header.names
+                        ]
+                    )
                     + "\n"
                 )
                 text += header
+                row_count += 1  # increase row counter
 
-            for row in t.extract():  # read the table rows
-                row_text = ";".join(row) + "\n"
-                if row_text != header:  # only output header line once
+            # output the table body
+            for row in table.extract():  # iterate over the table rows
+
+                # again replace any "None" in cells by an empty string
+                row_text = (
+                    ";".join([cell if cell is not None else "" for cell in row]) + "\n"
+                )
+                if row_text != header:  # omit duplicates of header row
                     text += row_text
-                    lines += 1
-    doc.close()
-    print(f"Loaded {lines} table rows from file '{doc.name}'.\n")
+                    row_count += 1  # increase row counter
+    doc.close()  # close document
+    print(f"Loaded {row_count} table rows from file '{doc.name}'.\n")
     return text
 
 
-# models "gpt-3.5-turbo-instruct" is for text
+# use model "gpt-3.5-turbo-instruct" for text
 def generate_response_with_chatgpt(prompt):
     response = client.completions.create(
         model="gpt-3.5-turbo-instruct",  # Choose appropriate model
