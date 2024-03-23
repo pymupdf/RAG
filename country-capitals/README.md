@@ -18,15 +18,17 @@ After the chatbot has finished interpreting the data, the user may start asking
 questions via Read-Evaluate-Print loop (REPL).
 
 ## Information Retrieved for Responses
-Remarkably, the chatbot "realizes" the geographics and demographic context
+Remarkably, the chatbot "realizes" the geographic and demographic context
 established by the PDF's data. This enables it to access the right knowledge
-resources on the internet to complete information required to answer user 
+resources on the internet for completing the information required to answer the user 
 questions.
 
-For example, it will understand it has to look up cities and countries if being
-asked for words that do not occur in the PDF. For instance, the country
-Liechtenstein is not in the PDF, but asking for it or its capital city,
-Vaduz will deliver correct information, including population numbers and
+For example, it will understand it has to look up **cities** and **countries** when being
+asked for words that do not occur in the PDF.
+
+For instance, the country
+**Liechtenstein** is not in the PDF, but asking for it or its capital city,
+Vaduz will deliver correct information, including population numbers or
 short abstracts of city and country.
 
 ## Getting Started
@@ -42,7 +44,7 @@ python pip install -U openai
 Visit https://github.com/openai/openai-cookbook to learn how to register on
 OpenAI's website and request an API key.
 
-Copy this folder to your machine, then edit the script and type in your API key and save. Then open a terminal in the folder and execute the following command:
+Copy this folder to your machine, then edit the script, type in your API key in this line `API_KEY = "your OpenAI API key goes here"` and save. Then open a terminal in the folder and execute the following command:
 
 ```bash
 python country-capitals.py
