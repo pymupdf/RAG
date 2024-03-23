@@ -42,8 +42,7 @@ python pip install -U openai
 Visit https://github.com/openai/openai-cookbook to learn how to register on
 OpenAI's website and request an API key.
 
-Edit the script and type in your API key, save and execute the following in
-a terminal:
+Copy this folder to your machine, then edit the script and type in your API key and save. Then open a terminal in the folder and execute the following command:
 
 ```bash
 python country-capitals.py
