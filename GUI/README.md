@@ -7,8 +7,8 @@ Open a terminal and ensure that the required packages are on your system by exec
 
 ```bash
 pip install -U pip
-pip install -U tiktoken
 pip install -U langchain
+pip install -U langchain-community
 pip install -U langchain-openai
 pip install -U gradio
 pip install -U PyMuPDF

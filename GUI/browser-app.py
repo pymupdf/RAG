@@ -43,7 +43,7 @@ import uuid
 enable_box = gr.Textbox(
     value=None, placeholder="Upload your OpenAI API key", interactive=True
 )
-disable_box = gr.Textbox(value="OpenAI API key is Set", interactive=False)
+disable_box = gr.Textbox(value="OpenAI API key is set", interactive=False)
 
 
 def set_apikey(api_key: str):
@@ -90,7 +90,6 @@ class my_app:
         return documents, file_name
 
     def build_chain(self, file: str):
-        print("build_chain")
         documents, file_name = self.process_file(file)
         # Load embeddings model
         embeddings = OpenAIEmbeddings(openai_api_key=self.OPENAI_API_KEY)
@@ -144,8 +143,8 @@ def purge_chat_and_render_first(file):
     image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     return image, []
 
-
 app = my_app()
+
 with gr.Blocks() as demo:
     with gr.Column():
         with gr.Row():
@@ -158,23 +157,22 @@ with gr.Blocks() as demo:
                 )
 
         with gr.Row():
-            with gr.Column(scale=1):
+            with gr.Column(scale=2):
                 with gr.Row():
                     chatbot = gr.Chatbot(value=[], elem_id="chatbot")
                 with gr.Row():
                     txt = gr.Textbox(
                         show_label=False,
-                        placeholder="Enter text and press enter",
-                        scale=1.5
-                    )  # .style(container=False)
-                    submit_btn = gr.Button("submit", scale=0.5)
+                        placeholder="Enter text and press submit",
+                        scale=2
+                    )
+                    submit_btn = gr.Button("submit", scale=1)
 
-            with gr.Column(scale=0.5):
+            with gr.Column(scale=1):
                 with gr.Row():
                     show_img = gr.Image(label="Upload PDF")
                 with gr.Row():
                     btn = gr.UploadButton("📁 upload a PDF", file_types=[".pdf"])
-
 
     api_key.submit(
         fn=set_apikey,
@@ -202,7 +200,6 @@ with gr.Blocks() as demo:
     ).success(
         fn=render_file, inputs=[btn], outputs=[show_img]
     )
-
 
 demo.queue()
 demo.launch()
