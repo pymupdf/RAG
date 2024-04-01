@@ -90,6 +90,7 @@ class my_app:
         return documents, file_name
 
     def build_chain(self, file: str):
+        print("build_chain")
         documents, file_name = self.process_file(file)
         # Load embeddings model
         embeddings = OpenAIEmbeddings(openai_api_key=self.OPENAI_API_KEY)
@@ -123,16 +124,22 @@ def get_response(history, query, file):
 def render_file(file):
     doc = fitz.open(file.name)
     page = doc[app.N]
-    # Render the page as a PNG image with a resolution of 300 DPI
+    # Render the page as a PNG image with a resolution of 150 DPI
     pix = page.get_pixmap(dpi=150)
     image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     return image
 
 
-def render_first(file):
+def purge_chat_and_render_first(file):
+    print("purge_chat_and_render_first")
+    # Purges the previous chat session so that the bot has no concept of previous documents
+    app.chat_history = []
+    app.count = 0
+
+    # Use PyMuPDF to render the first page of the uploaded document
     doc = fitz.open(file.name)
     page = doc[0]
-    # Render the page as a PNG image with a resolution of 300 DPI
+    # Render the page as a PNG image with a resolution of 150 DPI
     pix = page.get_pixmap(dpi=150)
     image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     return image, []
@@ -142,27 +149,32 @@ app = my_app()
 with gr.Blocks() as demo:
     with gr.Column():
         with gr.Row():
+
             with gr.Column(scale=1):
                 api_key = gr.Textbox(
                     placeholder="Enter OpenAI API key and hit <RETURN>",
                     show_label=False,
-                    interactive=True,
+                    interactive=True
                 )
-            with gr.Column(scale=1):
-                change_api_key = gr.Button("Change Key")
+
         with gr.Row():
-            chatbot = gr.Chatbot(value=[], elem_id="chatbot")
-            show_img = gr.Image(label="Upload PDF")
-    with gr.Row():
-        with gr.Column(scale=1):
-            txt = gr.Textbox(
-                show_label=False,
-                placeholder="Enter text and press enter",
-            )  # .style(container=False)
-        with gr.Column(scale=1):
-            submit_btn = gr.Button("submit")
-        with gr.Column(scale=1):
-            btn = gr.UploadButton("📁 upload a PDF", file_types=[".pdf"])
+            with gr.Column(scale=1):
+                with gr.Row():
+                    chatbot = gr.Chatbot(value=[], elem_id="chatbot")
+                with gr.Row():
+                    txt = gr.Textbox(
+                        show_label=False,
+                        placeholder="Enter text and press enter",
+                        scale=1.5
+                    )  # .style(container=False)
+                    submit_btn = gr.Button("submit", scale=0.5)
+
+            with gr.Column(scale=0.5):
+                with gr.Row():
+                    show_img = gr.Image(label="Upload PDF")
+                with gr.Row():
+                    btn = gr.UploadButton("📁 upload a PDF", file_types=[".pdf"])
+
 
     api_key.submit(
         fn=set_apikey,
@@ -171,9 +183,9 @@ with gr.Blocks() as demo:
             api_key,
         ],
     )
-    change_api_key.click(fn=enable_api_box, outputs=[api_key])
+
     btn.upload(
-        fn=render_first,
+        fn=purge_chat_and_render_first,
         inputs=[btn],
         outputs=[show_img, chatbot],
     )

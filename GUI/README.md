@@ -3,7 +3,7 @@
 ## Installation
 Please download this folder to your machine.
 
-Open some terminal and ensure that the required packages are on your system byexecuting the following command. We also recommend to always update pip.
+Open a terminal and ensure that the required packages are on your system by executing the following commands. We also recommend to always update pip.
 
 ```bash
 pip install -U pip
@@ -18,7 +18,7 @@ pip install -U PyMuPDF
 Launch the application by executing the following command in a terminal opened in the downloaded folder:
 
 ```bash
-python browser-app.y
+python browser-app.py
 ```
 
 After a few seconds the application will display instructions on how to start a session in your browser.
