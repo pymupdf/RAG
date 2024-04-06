@@ -144,8 +144,8 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
             for line in block["lines"]:  # iterate lines in block
                 if line["dir"][1] != 0:  # only consider horizontal lines
                     continue
-                spans = [s for s in line["spans"] ]
-                
+                spans = [s for s in line["spans"]]
+
                 this_y = line["bbox"][3]  # current bottom coord
 
                 # check for still being on same line
@@ -230,7 +230,7 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
-        return out_string.replace("<", "&lt;").replace(">", "&gt;").replace(" \n","\n")
+        return out_string.replace("<", "&lt;").replace(">", "&gt;").replace(" \n", "\n")
 
     hdr_prefix = IdentifyHeaders(doc, pages=pages)
     md_string = ""
@@ -314,13 +314,15 @@ if __name__ == "__main__":
         print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()
 
-    t0 = time.perf_counter()
+    t0 = time.perf_counter()  # start a time
 
-    doc = fitz.open(filename)
-    parms = sys.argv[2:]
-    pages = list(range(doc.page_count))
-    if len(parms) == 2 and parms[0] == "-pages":
-        pages = []
+    doc = fitz.open(filename)  # open input file
+    parms = sys.argv[2:]  # contains ["-pages", "PAGES"] or empty list
+    pages = range(doc.page_count)  # default page range
+    if len(parms) == 2 and parms[0] == "-pages":  # page sub-selection given
+        pages = []  # list of desired page numbers
+
+        # replace any variable "N" by page count
         pages_spec = parms[1].replace("N", f"{doc.page_count}")
         for spec in pages_spec.split(","):
             if "-" in spec:
@@ -329,13 +331,17 @@ if __name__ == "__main__":
             else:
                 pages.append(int(spec) - 1)
 
+        # make a set of invalid page numbers
         wrong_pages = set([n + 1 for n in pages if n >= doc.page_count][:4])
-        if wrong_pages != set():
+        if wrong_pages != set():  # if any invalid numbers given, exit.
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
+    # get the markdown string
     md_string = to_markdown(doc, pages=pages)
+
+    # output to a text file with extension ".md"
     out = open(doc.name.replace(".pdf", ".md"), "w")
     out.write(md_string)
     out.close()
-    t1 = time.perf_counter()
+    t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
