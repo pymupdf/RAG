@@ -221,6 +221,7 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
                             .replace(chr(0xF0B7), "-")
                             .replace(chr(0xB7), "-")
                             .replace(chr(8226), "-")
+                            .replace(chr(9679), "-")
                         )
                         out_string += text
                 previous_y = this_y
@@ -230,7 +231,7 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
-        return out_string.replace("<", "&lt;").replace(">", "&gt;").replace(" \n", "\n")
+        return out_string.replace(" \n", "\n")
 
     hdr_prefix = IdentifyHeaders(doc, pages=pages)
     md_string = ""

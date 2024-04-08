@@ -3,7 +3,7 @@ This script accepts a PDF document filename and converts it to a text file in Ma
 It must be invoked with the filename like this:
 
 ```python
-$ python to_markdown.py input.pdf [-pages PAGES]
+$ python pymupdf_rag.py input.pdf [-pages PAGES]
 ```
 
 The "PAGES" parameter is a string (containing no spaces) of 1-based page numbers to consider for this conversion. Multiple page numbers and page number ranges may be specified if separated by a comma. Each item is either a single page number or a number range of the form "m-n". Use "N" as a symbolic value to specify the last page number.
@@ -22,7 +22,7 @@ Markdown conversion can also be invoked from within any script like this:
 ```python
 import fitz
 import pathlib
-from to_markdown import to_markdown
+from pymupdf_rag import to_markdown
 
 doc = fitz.open("input.pdf")
 page_list = [ list of 0-based page numbers ]
