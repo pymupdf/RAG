@@ -4,7 +4,7 @@ in Markdown format, compatible with the GitHub standard.
 
 It must be invoked with the filename like this:
 
-python fitz-markdown.py input.pdf [-pages PAGES]
+python pymupdf_rag.py input.pdf [-pages PAGES]
 
 The "PAGES" parameter is a string (containing no spaces) of comma-separated
 page numbers to consider. Each item is either a single page number or a
