@@ -312,7 +312,7 @@ if __name__ == "__main__":
     try:
         filename = sys.argv[1]
     except IndexError:
-        print(f"Usage:\npython {os.path.basename(__file__)} Energia Tre 2013.pdf")
+        print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()
 
     t0 = time.perf_counter()  # start a time
