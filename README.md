@@ -26,11 +26,10 @@ Then in your script do
 
 ```python
 import pdf4llm
-import fitz
 
-doc = fitz.open("input.pdf")
-
-md_text = pdf4llm.to_markdown(doc)
+md_text = pdf4llm.to_markdown("input.pdf", pages=page_numbers)
 
 # work with the markdown text
 ```
+
+Instead of the filename string as above, you can also provide a PyMuPDF `Document`. 
