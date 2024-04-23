@@ -343,8 +343,8 @@ if __name__ == "__main__":
     md_string = to_markdown(doc, pages=pages)
 
     # output to a text file with extension ".md"
-    with open(doc.name.replace(".pdf", ".md"), "w", encoding="utf-8") as out:
-        out.write(md_string)
+    out = open(doc.name.replace(".pdf", ".md"), "w")
+    out.write(md_string)
     out.close()
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
