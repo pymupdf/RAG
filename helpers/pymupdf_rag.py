@@ -46,6 +46,8 @@ if fitz.pymupdf_version_tuple < (1, 24, 0):
 
 def to_markdown(doc: fitz.Document, pages: list = None) -> str:
     """Process the document and return the text of its selected pages."""
+    if isinstance(doc, str):
+        doc = fitz.open(doc)
     SPACES = set(string.whitespace)  # used to check relevance of text pieces
     if not pages:  # use all pages if argument not given
         pages = range(doc.page_count)

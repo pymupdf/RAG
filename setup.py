@@ -17,7 +17,7 @@ requires = ["pymupdf>=1.24.2"]
 
 setuptools.setup(
     name="pdf4llm",
-    version="0.0.2",
+    version="0.0.4",
     author="Artifex",
     author_email="support@artifex.com",
     description="PyMuPDF Utilities for LLM/RAG",
@@ -29,4 +29,5 @@ setuptools.setup(
     url="https://github.com/pymupdf/RAG",
     classifiers=classifiers,
     project_urls={},
+    package_data={"pdf4llm": ["LICENSE", "helpers/*.py"]},
 )
