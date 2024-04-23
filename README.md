@@ -12,4 +12,25 @@ This will generally be implemented as one or more Python functions called by any
 4. **Retrieving Relevant Information**: Search your indexed knowledge base for the most relevant pieces of information related to the user's query.
 5. **Generating a Response**: Use a generative model to generate a response based on the retrieved information.
 
+# Installation
+
 As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_**, which includes standard text as well as table-based text in a consistent and integrated view. This is especially important in RAG environments.
+
+There exists a Python package on PyPI [pdf4llm](https://pypi.org/project/pdf4llm/) which provides easy access to this script:
+
+```bash
+$ pip install -U pdf4llm
+```
+
+Then in your script do
+
+```python
+import pdf4llm
+import fitz
+
+doc = fitz.open("input.pdf")
+
+md_text = pdf4llm.to_markdown(doc)
+
+# work with the markdown text
+```
