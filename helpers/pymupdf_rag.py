@@ -310,6 +310,7 @@ if __name__ == "__main__":
     import os
     import sys
     import time
+    import pathlib
 
     try:
         filename = sys.argv[1]
@@ -343,8 +344,7 @@ if __name__ == "__main__":
     md_string = to_markdown(doc, pages=pages)
 
     # output to a text file with extension ".md"
-    out = open(doc.name.replace(".pdf", ".md"), "w")
-    out.write(md_string)
-    out.close()
+    outname = doc.name.replace(".pdf", ".md")
+    pathlib.Path(outname).write_bytes(md_string.encode())
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
