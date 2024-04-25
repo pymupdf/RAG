@@ -1,0 +1,42 @@
+.. raw:: html
+
+    <link rel="stylesheet" type="text/css" href="_static/prism/prism.css">
+
+        <style>
+
+            /* Prism Updates */
+
+            .code-toolbar .copy-to-clipboard-button {
+                background: #007aff !important;
+                color: white !important;
+                padding: 10px !important;
+                border-radius: 5px !important;
+                font-family: Arial !important;
+            }
+
+            .code-toolbar pre {
+               background: #fff;
+               border: #999 1px dashed;
+            }
+
+            .code-toolbar code {
+               border: 0px !important;
+            }
+
+        </style>
+
+   <script type="text/javascript" src="_static/prism/prism.js"></script>
+
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
+        <div class="feedbackLink"><a id="feedbackLinkTop" target=_blank>Do you have any feedback on this page?</b></a></div>
+    </div>
+
+    <script>
+
+    var url_string = window.location.href;
+    var a = document.getElementById('feedbackLinkTop');
+    a.setAttribute("href", "https://artifex.com/contributor/feedback.php?utm_source=mudf-docs&utm_medium=website&utm_content=header-link&url="+url_string);
+
+    </script>
+
