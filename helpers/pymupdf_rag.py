@@ -82,11 +82,14 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
             # maps a fontsize to a string of multiple # header tag characters
             self.header_id = {}
             if body_limit is None:  # body text fontsize if not provided
-                body_limit = sorted(
-                    [(k, v) for k, v in fontsizes.items()],
-                    key=lambda i: i[1],
-                    reverse=True,
-                )[0][0]
+                if fontsizes == {}:  # no text found, use a default fontsize
+                    body_limit = 10
+                else:
+                    body_limit = sorted(
+                        [(k, v) for k, v in fontsizes.items()],
+                        key=lambda i: i[1],
+                        reverse=True,
+                    )[0][0]
 
             sizes = sorted(
                 [f for f in fontsizes.keys() if f > body_limit], reverse=True
