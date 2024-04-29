@@ -14,20 +14,20 @@ This will generally be implemented as one or more Python functions called by any
 
 # Installation
 
-As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_** (GitHub compatible), which includes **standard text** as well as **table-based text** in a consistent and integrated view. This is especially important in RAG environments.
+As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_** (GitHub compatible), which includes **standard text** as well as **table-based text** in a consistent and integrated view. This is particularly important in RAG environments.
 
-There exist Python packages on PyPI [pdf4llm](https://pypi.org/project/pdf4llm/) (or its alias [pymupdf4llm](https://pypi.org/project/pymupdf4llm/)) which provide convenient access to this script:
+There is a Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf4llm/) (there also is an alias [pdf4llm](https://pypi.org/project/pdf4llm/)) which provides convenient access to this script:
 
 ```bash
-$ pip install -U pdf4llm
+$ pip install -U pymupdf4llm
 ```
 
 Then in your script do
 
 ```python
-import pdf4llm
+import pymupdf4llm
 
-md_text = pdf4llm.to_markdown("input.pdf", pages=None)
+md_text = pymupdf4llm.to_markdown("input.pdf", pages=None)
 
 # now work with the markdown text, e.g. store as a UTF8-encoded file
 import pathlib
