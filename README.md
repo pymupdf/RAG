@@ -22,6 +22,8 @@ There is a Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf
 $ pip install -U pymupdf4llm
 ```
 
+> This command will automatically install [PyMuPDF](https://github.com/pymupdf/PyMuPDF) if required.
+
 Then in your script do
 
 ```python
@@ -35,3 +37,15 @@ pathlib.Path("output.md").write_bytes(md_text.encode())
 ```
 
 Instead of the filename string as above, one can also provide a PyMuPDF `Document`. The `pages` parameter may be a list of 0-based page numbers or `None` (the default) whch includes all pages.
+
+# About PyMuPDF
+**PyMuPDF** adds **Python** bindings and abstractions to [MuPDF](https://mupdf.com/), a lightweight **PDF**, **XPS**, and **eBook** viewer, renderer, and toolkit. Both **PyMuPDF** and **MuPDF** are maintained and developed by [Artifex Software, Inc](https://artifex.com).
+
+PyMuPDF's homepage is located on [GitHub](https://github.com/pymupdf/PyMuPDF).
+
+# Community
+Join us on **Discord** here: [#pymupdf](https://discord.gg/TSpYGBW4eq).
+
+# License and Copyright
+**PyMuPDF** is available under [open-source AGPL](https://www.gnu.org/licenses/agpl-3.0.html) and commercial license agreements. If you determine you cannot meet the requirements of the **AGPL**, please contact [Artifex](https://artifex.com/contact/pymupdf-inquiry.php) for more information regarding a commercial license.
+

@@ -17,7 +17,9 @@ By default, all document pages are processed. If desired, a subset of pages can 
 $ pip install -U pdf4llm
 ```
 
-Then in your script do
+> This command will automatically install [PyMuPDF](https://github.com/pymupdf/PyMuPDF) if required.
+
+Then in your script do:
 
 ```python
 import pdf4llm
