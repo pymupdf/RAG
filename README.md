@@ -38,6 +38,13 @@ pathlib.Path("output.md").write_bytes(md_text.encode())
 
 Instead of the filename string as above, one can also provide a PyMuPDF `Document`. The `pages` parameter may be a list of 0-based page numbers or `None` (the default) whch includes all pages.
 
+# Document Support
+
+While PDF is certainly the most important document format worldwide by far, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
+
+So for an XPS document or an eBook, simply provide the filename for instance as `"input.mobi"` and everything else will work as before.
+
+
 # About PyMuPDF
 **PyMuPDF** adds **Python** bindings and abstractions to [MuPDF](https://mupdf.com/), a lightweight **PDF**, **XPS**, and **eBook** viewer, renderer, and toolkit. Both **PyMuPDF** and **MuPDF** are maintained and developed by [Artifex Software, Inc](https://artifex.com).
 
