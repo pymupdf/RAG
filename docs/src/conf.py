@@ -31,7 +31,7 @@ source_suffix = ".rst"
 root_doc = "index"
 
 # General information about the project.
-project = "pdf4llm"
+project = "PyMuPDF4LLM"
 copyright = "2024, Artifex"
 html_show_sourcelink = False
 
@@ -92,9 +92,9 @@ html_logo = "_static/sidebar-logo-dark.png"
 # documentation.
 html_theme_options = {
     "logo": {
-        "text": "PDF4LLM",
+        "text": "PyMuPDF4LLM",
         "image_dark": "_static/sidebar-logo-light.png",
-        "alt_text": "PDF4LLM documentation",
+        "alt_text": "PyMuPDF4LLM documentation",
     },
     "icon_links": [
         {

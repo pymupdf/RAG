@@ -1,9 +1,9 @@
 
 
-PDF4LLM
+PyMuPDF4LLM
 ===========================================================================
 
-**PDF4LLM** is based on `PyMuPDF <https://pymupdf.readthedocs.io>`_ - the fastest **PDF** extraction tool for **Python**.
+**PyMuPDF4LLM** is based on `PyMuPDF <https://pymupdf.readthedocs.io>`_ - the fastest **PDF** extraction tool for **Python**.
 
 This documentation explains how to use the **Python PDF4LLM** package as well as providing links to other related **RAG** & **LLM** resources for **PyMuPDF**.
 
@@ -31,7 +31,7 @@ Install the package via **pip** with:
 
 .. code-block:: bash
 
-    pip install pdf4llm
+    pip install pymupdf4llm
 
 
 Then in your **Python** script do:
@@ -39,8 +39,8 @@ Then in your **Python** script do:
 
 .. code-block:: python
 
-    import pdf4llm
-    md_text = pdf4llm.to_markdown("input.pdf", pages=None)
+    import pymupdf4llm
+    md_text = pymupdf4llm.to_markdown("input.pdf", pages=None)
 
 
 

@@ -1,4 +1,4 @@
-# PDF4LLM documentation
+# PyMuPDF4LLM documentation
 
 Welcome to the documentation. This documentation relies on [Sphinx](https://www.sphinx-doc.org/en/master/) to publish HTML docs from markdown files written with [restructured text](https://en.wikipedia.org/wiki/ReStructuredText) (RST).
 
