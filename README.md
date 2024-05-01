@@ -14,20 +14,22 @@ This will generally be implemented as one or more Python functions called by any
 
 # Installation
 
-As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_** (GitHub compatible), which includes **standard text** as well as **table-based text** in a consistent and integrated view. This is especially important in RAG environments.
+As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_** (GitHub compatible), which includes **standard text** as well as **table-based text** in a consistent and integrated view. This is particularly important in RAG environments.
 
-There exist Python packages on PyPI [pdf4llm](https://pypi.org/project/pdf4llm/) (or its alias [pymupdf4llm](https://pypi.org/project/pymupdf4llm/)) which provide convenient access to this script:
+There is a Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf4llm/) (there also is an alias [pdf4llm](https://pypi.org/project/pdf4llm/)) which provides convenient access to this script:
 
 ```bash
-$ pip install -U pdf4llm
+$ pip install -U pymupdf4llm
 ```
+
+> This command will automatically install [PyMuPDF](https://github.com/pymupdf/PyMuPDF) if required.
 
 Then in your script do
 
 ```python
-import pdf4llm
+import pymupdf4llm
 
-md_text = pdf4llm.to_markdown("input.pdf", pages=None)
+md_text = pymupdf4llm.to_markdown("input.pdf", pages=None)
 
 # now work with the markdown text, e.g. store as a UTF8-encoded file
 import pathlib
@@ -35,3 +37,22 @@ pathlib.Path("output.md").write_bytes(md_text.encode())
 ```
 
 Instead of the filename string as above, one can also provide a PyMuPDF `Document`. The `pages` parameter may be a list of 0-based page numbers or `None` (the default) whch includes all pages.
+
+# Document Support
+
+While PDF is certainly the most important document format worldwide by far, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
+
+So for an XPS document or an eBook, simply provide the filename for instance as `"input.mobi"` and everything else will work as before.
+
+
+# About PyMuPDF
+**PyMuPDF** adds **Python** bindings and abstractions to [MuPDF](https://mupdf.com/), a lightweight **PDF**, **XPS**, and **eBook** viewer, renderer, and toolkit. Both **PyMuPDF** and **MuPDF** are maintained and developed by [Artifex Software, Inc](https://artifex.com).
+
+PyMuPDF's homepage is located on [GitHub](https://github.com/pymupdf/PyMuPDF).
+
+# Community
+Join us on **Discord** here: [#pymupdf](https://discord.gg/TSpYGBW4eq).
+
+# License and Copyright
+**PyMuPDF** is available under [open-source AGPL](https://www.gnu.org/licenses/agpl-3.0.html) and commercial license agreements. If you determine you cannot meet the requirements of the **AGPL**, please contact [Artifex](https://artifex.com/contact/pymupdf-inquiry.php) for more information regarding a commercial license.
+
