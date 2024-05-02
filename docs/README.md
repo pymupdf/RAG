@@ -42,7 +42,24 @@ This then creates the HTML documentation within `build/html`.
 
 This will ensure that the documentation runs in a localhost and will also hot-reload changes.
 
+
+## Building the Japanese documentation
+
+- From the "src" location run:
+
+`sphinx-build -a -b html -D language=ja . _build/html/ja`
+
+
+- Updating, after changes on the `main` branch and a sync with the main `en` .rst files, from the "docs" location, do:
+
+`sphinx-build -b gettext . _build/gettext`
+
+then:
+
+`sphinx-intl update -p _build/gettext -l ja`
+
 ---
+
 
 
 For full details see: [Using Sphinx](https://www.sphinx-doc.org/en/master/usage/index.html) 
