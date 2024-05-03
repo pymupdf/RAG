@@ -72,7 +72,7 @@ msgstr "太字、斜体、等幅テキスト、およびコードブロックが
 msgid ""
 "By default, all document pages are processed. If desired, a subset of "
 "pages can be specified by providing a list of `0`-based page numbers."
-msgstr "デフォルトでは、すべての文書ページが処理されます。必要に応じて、0から始まるページ番号のリストを指定してサブセットのページを指定できます。"
+msgstr "デフォルトでは、すべての文書ページが処理されます。必要に応じて、`0` から始まるページ番号のリストを指定してサブセットのページを指定できます。"
 
 #: ../../index.rst:25
 msgid "Using in LLM / RAG Applications"
@@ -163,7 +163,7 @@ msgid ""
 "<https://artifex.com/blog/building-a-rag-chatbot-gui-with-the-chatgpt-"
 "api-and-pymupdf>`_"
 msgstr ""
-"`ChatGPT APIとPyMuPDFを使用してRAGチャットボットGUIを構築する <https://qiita.com/jamie-"
+"`ChatGPT APIとPyMuPDFを使用してRAGチャットボットGUIを構築 <https://qiita.com/jamie-"
 "lemon/items/f075ae56cf56723c9409>`_"
 
 #: ../../index.rst:82
