@@ -87,7 +87,6 @@ Blogs
 
 
 
-
 .. _PyMuPDF Document: https://pymupdf.readthedocs.io/en/latest/document.html
 
 
