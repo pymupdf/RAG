@@ -221,9 +221,9 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
 
                         ltext = resolve_links(links, s)
                         if ltext:
-                            text = f"{hdr_string}{prefix}{ltext}{suffix} "
+                            text = f"{prefix}{ltext}{suffix} "
                         else:
-                            text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                            text = f"{prefix}{s['text'].strip()}{suffix} "
                         text = (
                             text.replace("<", "&lt;")
                             .replace(">", "&gt;")
@@ -232,6 +232,8 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
                             .replace(chr(8226), "-")
                             .replace(chr(9679), "-")
                         )
+                        if text.strip():
+                            text=f"{hdr_string}{text}"
                         out_string += text
                 previous_y = this_y
                 if not code:
