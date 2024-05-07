@@ -100,7 +100,7 @@ msgid ""
 "Document`_. A second parameter may be a list of 0-based page numbers, "
 "e.g. `[0,1]` would just select the first and second pages of the "
 "document."
-msgstr "上記のファイル名文字列の代わりに、 `PyMuPDFのドキュメント <https://pymupdf.readthedocs.io/en/latest/document.html>`_ を指定することもできます。2番目のパラメータは、0から始まるページ番号のリストであり、例えば `[0,1]` はドキュメントの最初のページと2番目のページを選択します。"
+msgstr "上記のファイル名文字列の代わりに、 `PyMuPDFの Document <https://pymupdf.readthedocs.io/en/latest/document.html>`_ を指定することもできます。2番目のパラメータは、0から始まるページ番号のリストであり、例えば `[0,1]` はドキュメントの最初のページと2番目のページを選択します。"
 
 #: ../../index.rst:53
 msgid ""
