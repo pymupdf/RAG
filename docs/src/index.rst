@@ -44,7 +44,6 @@ Then in your **Python** script do:
     md_text = pymupdf4llm.to_markdown("input.pdf")
 
 
-
 .. note::
 
     Instead of the filename string as above, one can also provide a `PyMuPDF Document`_. A second parameter may be a list of 0-based page numbers, e.g. `[0,1]` would just select the first and second pages of the document.
