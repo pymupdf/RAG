@@ -46,7 +46,7 @@ Then in your **Python** script do:
 
 .. note::
 
-    Instead of the filename string as above, one can also provide a `PyMuPDF Document`_. A second parameter may be a list of 0-based page numbers, e.g. `[0,1]` would just select the first and second pages of the document.
+    Instead of the filename string as above, one can also provide a `PyMuPDF Document`_. A second parameter may be a list of `0`-based page numbers, e.g. `[0,1]` would just select the first and second pages of the document.
 
 
 If you want to store your **Markdown** file, e.g. store as a UTF8-encoded file, then do:
