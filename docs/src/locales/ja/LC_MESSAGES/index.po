@@ -29,7 +29,7 @@ msgid ""
 " the fastest **PDF** extraction tool for **Python**."
 msgstr ""
 "**PyMuPDF4LLM** は、**Python** 向けの最速の **PDF** 抽出ツールである `PyMuPDF "
-"<https://pymupdf.readthedocs.io>`_ に基づいています。"
+"<https://pymupdf.readthedocs.io/ja/latest/>`_ に基づいています。"
 
 #: ../../index.rst:9
 msgid ""
@@ -101,7 +101,7 @@ msgid ""
 "document."
 msgstr ""
 "上記のファイル名文字列の代わりに、 `PyMuPDFの Document "
-"<https://pymupdf.readthedocs.io/en/latest/document.html>`_ "
+"<https://pymupdf.readthedocs.io/ja/latest/document.html>`_ "
 "を指定することもできます。2番目のパラメータは、`0` から始まるページ番号のリストであり、例えば `[0,1]` "
 "はドキュメントの最初のページと2番目のページを選択します。"
 
