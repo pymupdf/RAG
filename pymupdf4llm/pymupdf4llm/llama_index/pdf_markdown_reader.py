@@ -2,17 +2,16 @@ import asyncio
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import fitz
+from fitz import Document as FitzDocument
+
 try:
-    import fitz
-    from fitz import Document as FitzDocument
     from llama_index.core.readers.base import BaseReader
     from llama_index.core.schema import Document as LlamaIndexDocument
 
     print("All imports are successful.")
 except ImportError:
-    raise NotImplementedError(
-        "Please install 'llama_index' version 1.24.0 or later is needed."
-    )
+    raise NotImplementedError("Please install 'llama_index' is needed.")
 
 
 import pymupdf4llm

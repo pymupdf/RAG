@@ -1,11 +1,18 @@
 import os
 
 import pytest
-from gary.services.rag.reader.pdf import LlamaIndexDocument
+from llama_index.core.schema import Document as LlamaIndexDocument
+
+try:
+    from llama_index.core.readers.base import BaseReader
+    from llama_index.core.schema import Document as LlamaIndexDocument
+
+    print("All imports are successful.")
+except ImportError:
+    raise NotImplementedError("Please install 'llama_index' is needed.")
+
 
 from pymupdf4llm.pymupdf4llm.llama_index.pdf_markdown_reader import PDFMardownReader
-
-# Temporay.
 
 PDF = "input.pdf"
 
