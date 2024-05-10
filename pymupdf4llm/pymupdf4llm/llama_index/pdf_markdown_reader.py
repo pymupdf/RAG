@@ -93,21 +93,12 @@ class PDFMardownReader(BaseReader):
         tasks = []
         for page in doc:
             tasks.append(
-                self._aprocess_doc_page(doc, extra_info, file_path, page.number)
+                self._process_doc_page(doc, extra_info, file_path, page.number)
             )
         return await asyncio.gather(*tasks)
 
     # Helpers
     # ---
-    async def _aprocess_doc_page(
-        self,
-        doc: FitzDocument,
-        extra_info: Dict[str, Any],
-        file_path: str,
-        page_number: int,
-    ):
-        """Asynchronously processes a single page of a PDF document."""
-        return self._process_doc_page(doc, extra_info, file_path, page_number)
 
     def _process_doc_page(
         self,
