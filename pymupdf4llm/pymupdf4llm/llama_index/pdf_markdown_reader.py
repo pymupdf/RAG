@@ -20,15 +20,15 @@ import pymupdf4llm
 class PDFMardownReader(BaseReader):
     """Read PDF files using PyMuPDF library."""
 
-    use_meta: bool = True
+    use_doc_meta: bool = True
     meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
 
     def __init__(
         self,
-        use_meta: bool = True,
+        use_doc_meta: bool = True,
         meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     ):
-        self.use_meta = use_meta
+        self.use_doc_meta = use_doc_meta
         self.meta_filter = meta_filter
 
     def load_data(
@@ -108,13 +108,16 @@ class PDFMardownReader(BaseReader):
         page_number: int,
     ):
         """Processes a single page of a PDF document."""
-        if self.use_meta:
-            extra_info = self._process_meta(doc, file_path, page_number, extra_info)
+        if self.use_doc_meta:
+            extra_info = self._process_doc_meta(doc, file_path, page_number, extra_info)
+
+        if self.meta_filter:
+            extra_info = self.meta_filter(extra_info)
 
         text = pymupdf4llm.to_markdown(doc, [page_number])
         return LlamaIndexDocument(text=text, extra_info=extra_info)
 
-    def _process_meta(
+    def _process_doc_meta(
         self,
         doc: FitzDocument,
         file_path: Union[Path, str],
@@ -126,8 +129,5 @@ class PDFMardownReader(BaseReader):
         extra_info["page_number"] = f"{page_number+1}"
         extra_info["total_pages"] = len(doc)
         extra_info["file_path"] = str(file_path)
-
-        if self.meta_filter:
-            extra_info = self.meta_filter(extra_info)
 
         return extra_info
