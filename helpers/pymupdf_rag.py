@@ -156,18 +156,19 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
                 spans = [s for s in line["spans"]]
 
                 this_y = line["bbox"][3]  # current bottom coord
-
-                # check for still being on same line
-                same_line = abs(this_y - previous_y) <= 3 and previous_y > 0
-
-                if same_line and out_string.endswith("\n"):
-                    out_string = out_string[:-1]
-
-                # are all spans in line in a mono-spaced font?
+                
+                 # are all spans in line in a mono-spaced font?
                 all_mono = all([s["flags"] & 8 for s in spans])
 
                 # compute text of the line
                 text = "".join([s["text"] for s in spans])
+
+                # check for still being on same line
+                same_line = abs(this_y - previous_y) <= 3 and previous_y > 0 or text[0].islower()
+
+                if same_line and out_string.endswith("\n"):
+                    out_string = out_string[:-1]
+
                 if not same_line:
                     previous_y = this_y
                     if not out_string.endswith("\n"):
@@ -205,7 +206,7 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
                         out_string += f"`{s['text'].strip()}` "
                     else:  # not a mono text
                         # for first span, get header prefix string if present
-                        if i == 0:
+                        if i == 0 and not same_line:
                             hdr_string = hdr_prefix.get_header_id(s)
                         else:
                             hdr_string = ""
@@ -231,16 +232,18 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
                             .replace(chr(0xB7), "-")
                             .replace(chr(8226), "-")
                             .replace(chr(9679), "-")
+                            .replace("\u00ad", "-")
                         )
                         out_string += text
                 previous_y = this_y
                 if not code:
                     out_string += "\n"
-            out_string += "\n"
+            if same_line:
+                out_string += "\n"
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
-        return out_string.replace(" \n", "\n")
+        return out_string.replace(" \n", "\n").replace("- ", "")
 
     hdr_prefix = IdentifyHeaders(doc, pages=pages)
     md_string = ""
