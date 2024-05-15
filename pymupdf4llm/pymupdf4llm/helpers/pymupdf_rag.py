@@ -44,7 +44,7 @@ if fitz.pymupdf_version_tuple < (1, 24, 0):
     raise NotImplementedError("PyMuPDF version 1.24.0 or later is needed.")
 
 
-def to_markdown(doc: fitz.Document, pages: list = None) -> str:
+def to_markdown(doc: fitz.Document, pages: list | range | None = None) -> str:
     """Process the document and return the text of its selected pages."""
     if isinstance(doc, str):
         doc = fitz.open(doc)
@@ -55,7 +55,7 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
     class IdentifyHeaders:
         """Compute data for identifying header text."""
 
-        def __init__(self, doc, pages: list = None, body_limit: float = None):
+        def __init__(self, doc, pages: list | range | None = None, body_limit: float | None = None):
             """Read all text and make a dictionary of fontsizes.
 
             Args:
@@ -317,7 +317,6 @@ if __name__ == "__main__":
     import os
     import sys
     import time
-    import pathlib
 
     try:
         filename = sys.argv[1]
