@@ -43,8 +43,11 @@ try:
 except ImportError:
     import fitz
 
-from get_text_lines import get_raw_lines, is_white
-from multi_column import column_boxes
+from pymupdf4llm.pymupdf4llm.helpers.get_text_lines import (
+    get_raw_lines,
+    is_white,
+)
+from pymupdf4llm.pymupdf4llm.helpers.multi_column import column_boxes
 
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
@@ -197,7 +200,6 @@ def to_markdown(
         prev_hdr_string = None
 
         for lrect, spans in nlines:
-
             # there may tables or images inside the text block: skip them
             if intersects_rects(lrect, tab_rects0) or intersects_rects(
                 lrect, img_rects0
@@ -456,9 +458,9 @@ def to_markdown(
 
 
 if __name__ == "__main__":
+    import pathlib
     import sys
     import time
-    import pathlib
 
     try:
         filename = sys.argv[1]
