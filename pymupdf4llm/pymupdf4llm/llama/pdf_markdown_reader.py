@@ -8,7 +8,8 @@ except ImportError:
     import fitz
 
 from fitz import Document as FitzDocument
-from pymupdf4llm import to_markdown, IdentifyHeaders
+
+from pymupdf4llm import IdentifyHeaders, to_markdown
 
 try:
     from llama_index.core.readers.base import BaseReader
@@ -143,7 +144,7 @@ class PDFMarkdownReader(BaseReader):
     ):
         """Processes metas of a PDF document."""
         extra_info.update(doc.metadata)
-        extra_info["page_number"] = f"{page_number+1}"
+        extra_info["page"] = page_number + 1
         extra_info["total_pages"] = len(doc)
         extra_info["file_path"] = str(file_path)
 
