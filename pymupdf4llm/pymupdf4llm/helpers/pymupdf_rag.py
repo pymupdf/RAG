@@ -350,6 +350,8 @@ def to_markdown(
 
     def output_images(page, text_rect, img_rects):
         """Output and remove images and graphics above text rectangle."""
+        if img_rects is None:
+            return ""
         this_md = ""  # markdown string
         if text_rect is not None:  # select tables above the text block
             for i, img_rect in sorted(
@@ -438,7 +440,7 @@ def to_markdown(
 
         # write remaining tables.
         md_string += output_tables(tabs, None, tab_rects)
-        md_string += output_images(None, tab_rects)
+        md_string += output_images(None, tab_rects, None)
         md_string += "\n-----\n\n"
         return md_string
 
