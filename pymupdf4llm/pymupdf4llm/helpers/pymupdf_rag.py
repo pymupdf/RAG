@@ -43,11 +43,11 @@ try:
 except ImportError:
     import fitz
 
-from pymupdf4llm.pymupdf4llm.helpers.get_text_lines import (
+from pymupdf4llm.helpers.get_text_lines import (
     get_raw_lines,
     is_white,
 )
-from pymupdf4llm.pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.multi_column import column_boxes
 
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
