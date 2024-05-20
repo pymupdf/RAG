@@ -31,4 +31,32 @@ import pathlib
 pathlib.Path("output.md").write_bytes(md_text.encode())
 ```
 
-Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, a list of zero-based page numbers to consider can be provided.
+Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, the parameter `pages=[...]` can be used to provide a list of zero-based page numbers to consider.
+
+**New features as of v0.0.2:**
+
+* Support for pages with **_multiple text columns_**.
+* Support for **_image and vector graphics extraction_**:
+
+    1. Specify `pymupdf4llm.to_markdown("input.pdf", write_images=True)`. Default is `False`.
+    2. Each image or vector graphic on the page will be extracted and stored as a PNG image named `"input.pdf-pno-index.png"` in the folder of `"input.pdf"`. Where `pno` is the 0-based page number and `index` is some sequence number.
+    3. The image files will have width and height equal to the values on the page.
+    4. Any text contained in the images or graphics will not be extracted, but become visible as image parts.
+
+* Support for **page chunks**: Instead of returning one large string for the whole document, a list of dictionaries can be generated: one for each page. Specify `data = pymupdf4llm.to_markdown("input.pdf", page_chunks=True)`. Then, for instance the first item, `data[0]` will contain a dictionary for the first page with the text and some metadata.
+
+* As a first example for directly supporting LLM / RAG consumers, this version can output **LlamaIndex documents**:
+
+    ```python
+    import pymupdf4llm
+    
+    md_read = LlamaMarkdownReader()
+    data = md_read.load_data("input.pdf")
+
+    # The result 'data' is of type List[LlamaIndexDocument]
+    # Every list item contains metadata and the markdown text of 1 page.
+    ```
+
+    * A LlamaIndex document essentially corresponds to Python dictionary, where the markdown text of the page is one of the dictionary values. For instance the text of the first page is the the value of `data[0].to_dict().["text"]`.
+    * For details, please consult LlamaIndex documentation.
+    * Upon creation of the `LlamaMarkdownReader` all necessary LlamaIndex-related imports are executed. Required related package installations must have been done independently and will not be checked during pymupdf4llm installation.

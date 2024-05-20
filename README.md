@@ -14,9 +14,7 @@ This will generally be implemented as one or more Python functions called by any
 
 # Installation
 
-As a specialty, folder "helpers" contains a script that is capable to convert PDF pages into **_text strings in Markdown format_** (GitHub compatible), which includes **standard text** as well as **table-based text** in a consistent and integrated view. This is particularly important in RAG environments.
-
-There is a Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf4llm/) (there also is an alias [pdf4llm](https://pypi.org/project/pdf4llm/)) which provides convenient access to this script:
+The Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf4llm/) (there also is an alias [pdf4llm](https://pypi.org/project/pdf4llm/)) is capable of converting PDF pages into **_text strings in Markdown format_** (GitHub compatible). This includes **standard text** as well as **table-based text** in a consistent and integrated view - a feature particularly important in RAG settings.
 
 ```bash
 $ pip install -U pymupdf4llm
@@ -36,11 +34,17 @@ import pathlib
 pathlib.Path("output.md").write_bytes(md_text.encode())
 ```
 
-Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, a list of zero-based page numbers to consider can be provided.
+Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, the parameter `pages=[...]` can be used to provide a list of zero-based page numbers to consider.
+
+Markdown text creation now also processes **multi-column pages**.
+
+To create small **chunks of text** - as opposed to generating one large string for the whole document - the new (v0.0.2) option `page_chunks=True` can be used. The result of `.to_markdown("input.pdf", page_chunks=True)` will be a list of Python dictionaries, one for each page.
+
+Also new in version 0.0.2 is the optional **extraction of images** and vector graphics: use of parameter `write_images=True`. The will store PNG images in the document's folder, and the Markdown text will appropriately refer to them. The images are named like `"input.pdf-page_number-index.png"`.
 
 # Document Support
 
-While PDF is certainly the most important document format worldwide by far, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
+While PDF is by far the most important document format worldwide, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
 
 So for an XPS document or an eBook, simply provide the filename for instance as `"input.mobi"` and everything else will work as before.
 

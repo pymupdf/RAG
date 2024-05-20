@@ -27,7 +27,7 @@ md_text = to_markdown(doc, pages=page_list)
 
 Dependencies
 -------------
-PyMuPDF v1.24.0 or later
+PyMuPDF v1.24.2 or later
 
 Copyright and License
 ----------------------
@@ -35,83 +35,112 @@ Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
 
+import os
 import string
-from pprint import pprint
 
-import fitz
+try:
+    import pymupdf as fitz  # available with v1.24.3
+except ImportError:
+    import fitz
 
-if fitz.pymupdf_version_tuple < (1, 24, 0):
-    raise NotImplementedError("PyMuPDF version 1.24.0 or later is needed.")
+from get_text_lines import get_raw_lines, is_white
+from multi_column import column_boxes
+
+if fitz.pymupdf_version_tuple < (1, 24, 2):
+    raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
+
+bullet = ("* ", chr(0xF0B7), chr(0xB7), chr(8226), chr(9679))
+GRAPHICS_TEXT = "\n![%s](%s)\n"
 
 
-def to_markdown(doc: fitz.Document, pages: list = None) -> str:
+class IdentifyHeaders:
+    """Compute data for identifying header text."""
+
+    def __init__(self, doc, pages: list = None, body_limit: float = None):
+        """Read all text and make a dictionary of fontsizes.
+
+        Args:
+            pages: optional list of pages to consider
+            body_limit: consider text with larger font size as some header
+        """
+        if isinstance(doc, fitz.Document):
+            mydoc = doc
+        else:
+            mydoc = fitz.open(doc)
+
+        if pages is None:  # use all pages if omitted
+            pages = range(mydoc.page_count)
+
+        fontsizes = {}
+        for pno in pages:
+            page = mydoc.load_page(pno)
+            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            for span in [  # look at all non-empty horizontal spans
+                s
+                for b in blocks
+                for l in b["lines"]
+                for s in l["spans"]
+                if not is_white(s["text"])
+            ]:
+                fontsz = round(span["size"])
+                count = fontsizes.get(fontsz, 0) + len(span["text"].strip())
+                fontsizes[fontsz] = count
+
+        if mydoc != doc:
+            # if opened here, close it now
+            mydoc.close()
+
+        # maps a fontsize to a string of multiple # header tag characters
+        self.header_id = {}
+
+        # If not provided, choose the most frequent font size as body text.
+        # If no text at all on all pages, just use 12
+        if body_limit is None:
+            temp = sorted(
+                [(k, v) for k, v in fontsizes.items()],
+                key=lambda i: i[1],
+                reverse=True,
+            )
+            if temp:
+                body_limit = temp[0][0]
+            else:
+                body_limit = 12
+
+        sizes = sorted([f for f in fontsizes.keys() if f > body_limit], reverse=True)
+
+        # make the header tag dictionary
+        for i, size in enumerate(sizes):
+            self.header_id[size] = "#" * (i + 1) + " "
+
+    def get_header_id(self, span):
+        """Return appropriate markdown header prefix.
+
+        Given a text span from a "dict"/"radict" extraction, determine the
+        markdown header prefix string of 0 to many concatenated '#' characters.
+        """
+        fontsize = round(span["size"])  # compute fontsize
+        hdr_id = self.header_id.get(fontsize, "")
+        return hdr_id
+
+
+def to_markdown(
+    doc: fitz.Document,
+    *,
+    pages: list = None,
+    hdr_info: IdentifyHeaders = None,
+    write_images=False,
+    page_chunks=False,
+) -> str:
     """Process the document and return the text of its selected pages."""
+
     if isinstance(doc, str):
         doc = fitz.open(doc)
-    SPACES = set(string.whitespace)  # used to check relevance of text pieces
+
     if not pages:  # use all pages if argument not given
         pages = range(doc.page_count)
 
-    class IdentifyHeaders:
-        """Compute data for identifying header text."""
-
-        def __init__(self, doc, pages: list = None, body_limit: float = None):
-            """Read all text and make a dictionary of fontsizes.
-
-            Args:
-                pages: optional list of pages to consider
-                body_limit: consider text with larger font size as some header
-            """
-            if pages is None:  # use all pages if omitted
-                pages = range(doc.page_count)
-            fontsizes = {}
-            for pno in pages:
-                page = doc[pno]
-                blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
-                for span in [  # look at all non-empty horizontal spans
-                    s
-                    for b in blocks
-                    for l in b["lines"]
-                    for s in l["spans"]
-                    if not SPACES.issuperset(s["text"])
-                ]:
-                    fontsz = round(span["size"])
-                    count = fontsizes.get(fontsz, 0) + len(span["text"].strip())
-                    fontsizes[fontsz] = count
-
-            # maps a fontsize to a string of multiple # header tag characters
-            self.header_id = {}
-
-            # If not provided, choose the most frequent font size as body text.
-            # If no text at all on all pages, just use 12
-            if body_limit is None:
-                temp = sorted(
-                    [(k, v) for k, v in fontsizes.items()],
-                    key=lambda i: i[1],
-                    reverse=True,
-                )
-                if temp:
-                    body_limit = temp[0][0]
-                else:
-                    body_limit = 12
-
-            sizes = sorted(
-                [f for f in fontsizes.keys() if f > body_limit], reverse=True
-            )
-
-            # make the header tag dictionary
-            for i, size in enumerate(sizes):
-                self.header_id[size] = "#" * (i + 1) + " "
-
-        def get_header_id(self, span):
-            """Return appropriate markdown header prefix.
-
-            Given a text span from a "dict"/"radict" extraction, determine the
-            markdown header prefix string of 0 to many concatenated '#' characters.
-            """
-            fontsize = round(span["size"])  # compute fontsize
-            hdr_id = self.header_id.get(fontsize, "")
-            return hdr_id
+    if not isinstance(hdr_info, IdentifyHeaders):
+        hdr_info = IdentifyHeaders(doc)
 
     def resolve_links(links, span):
         """Accept a span bbox and return a markdown link string."""
@@ -125,7 +154,24 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
             text = f'[{span["text"].strip()}]({link["uri"]})'
             return text
 
-    def write_text(page, clip, hdr_prefix):
+    def save_image(page, rect, i):
+        filename = page.parent.name.replace("\\", "/")
+        image_path = f"{filename}-{page.number}-{i}.png"
+        if write_images is True:
+            pix = page.get_pixmap(clip=rect)
+            pix.save(image_path)
+            del pix
+        return os.path.basename(image_path)
+
+    def write_text(
+        textpage: fitz.TextPage,
+        clip: fitz.Rect,
+        tabs=None,
+        tab_rects: dict = None,
+        img_rects: dict = None,
+        links: list = None,
+        hdr_info=None,
+    ) -> string:
         """Output the text found inside the given clip.
 
         This is an alternative for plain text in that it outputs
@@ -135,186 +181,281 @@ def to_markdown(doc: fitz.Document, pages: list = None) -> str:
         There is also some effort for list supported (ordered / unordered) in
         that typical characters are replaced by respective markdown characters.
         """
+        if clip is None:
+            clip = textpage.rect
         out_string = ""
+
+        # This is a list of tuples (linerect, [spanlist])
+        nlines = get_raw_lines(textpage, clip=clip, tolerance=3)
+
+        tab_rects0 = list(tab_rects.values())
+        img_rects0 = list(img_rects.values())
+
+        prev_lrect = None  # previous line rectangle
+        prev_bno = -1  # previous block number of line
         code = False  # mode indicator: outputting code
+        prev_hdr_string = None
 
-        # extract URL type links on page
-        links = [l for l in page.get_links() if l["kind"] == 2]
+        for lrect, spans in nlines:
 
-        blocks = page.get_text(
-            "dict",
-            clip=clip,
-            flags=fitz.TEXTFLAGS_TEXT,
-            sort=True,
-        )["blocks"]
+            # there may tables or images inside the text block: skip them
+            if intersects_rects(lrect, tab_rects0) or intersects_rects(
+                lrect, img_rects0
+            ):
+                continue
 
-        for block in blocks:  # iterate textblocks
-            previous_y = 0
-            for line in block["lines"]:  # iterate lines in block
-                if line["dir"][1] != 0:  # only consider horizontal lines
-                    continue
-                spans = [s for s in line["spans"]]
+            # Pick up tables intersecting this text block
+            for i, tab_rect in sorted(
+                [
+                    j
+                    for j in tab_rects.items()
+                    if j[1].y1 <= lrect.y0 and not (j[1] & clip).is_empty
+                ],
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                out_string += "\n" + tabs[i].to_markdown(clean=False) + "\n"
+                del tab_rects[i]
 
-                this_y = line["bbox"][3]  # current bottom coord
+            # Pick up images / graphics intersecting this text block
+            for i, img_rect in sorted(
+                [
+                    j
+                    for j in img_rects.items()
+                    if j[1].y1 <= lrect.y0 and not (j[1] & clip).is_empty
+                ],
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                pathname = save_image(page, img_rect, i)
+                out_string += GRAPHICS_TEXT % (pathname, pathname)
+                del img_rects[i]
 
-                # check for still being on same line
-                same_line = abs(this_y - previous_y) <= 3 and previous_y > 0
+            text = " ".join([s["text"] for s in spans])
 
-                if same_line and out_string.endswith("\n"):
-                    out_string = out_string[:-1]
+            # if the full line mono-spaced?
+            all_mono = all([s["flags"] & 8 for s in spans])
 
-                # are all spans in line in a mono-spaced font?
-                all_mono = all([s["flags"] & 8 for s in spans])
+            if all_mono:
+                if not code:  # if not already in code output  mode:
+                    out_string += "```\n"  # switch on "code" mode
+                    code = True
+                # compute approx. distance from left - assuming a width
+                # of 0.5*fontsize.
+                delta = int((lrect.x0 - clip.x0) / (spans[0]["size"] * 0.5))
+                indent = " " * delta
 
-                # compute text of the line
-                text = "".join([s["text"] for s in spans])
-                if not same_line:
-                    previous_y = this_y
-                    if not out_string.endswith("\n"):
-                        out_string += "\n"
+                out_string += indent + text + "\n"
+                continue  # done with this line
 
-                if all_mono:
-                    # compute approx. distance from left - assuming a width
-                    # of 0.5*fontsize.
-                    delta = int(
-                        (spans[0]["bbox"][0] - block["bbox"][0])
-                        / (spans[0]["size"] * 0.5)
-                    )
-                    if not code:  # if not already in code output  mode:
-                        out_string += "```"  # switch on "code" mode
-                        code = True
-                    if not same_line:  # new code line with left indentation
-                        out_string += "\n" + " " * delta + text + " "
-                        previous_y = this_y
-                    else:  # same line, simply append
-                        out_string += text + " "
-                    continue  # done with this line
+            bno = spans[0]["block"]  # block number of line
+            if bno != prev_bno:
+                out_string += "\n"
+                prev_bno = bno
+            span0 = spans[0]
 
-                for i, s in enumerate(spans):  # iterate spans of the line
-                    # this line is not all-mono, so switch off "code" mode
-                    if code:  # still in code output mode?
-                        out_string += "```\n"  # switch of code mode
-                        code = False
-                    # decode font properties
-                    mono = s["flags"] & 8
-                    bold = s["flags"] & 16
-                    italic = s["flags"] & 2
+            if (  # check if we need another line break
+                prev_lrect
+                and lrect.y1 - prev_lrect.y1 > lrect.height * 1.5
+                or span0["text"].startswith("[")
+                or span0["text"].startswith(bullet)
+                or span0["flags"] & 1
+            ):
+                out_string += "\n"
+            prev_lrect = lrect
 
-                    if mono:
-                        # this is text in some monospaced font
-                        out_string += f"`{s['text'].strip()}` "
-                    else:  # not a mono text
-                        # for first span, get header prefix string if present
-                        if i == 0:
-                            hdr_string = hdr_prefix.get_header_id(s)
-                        else:
-                            hdr_string = ""
-                        prefix = ""
-                        suffix = ""
-                        if hdr_string == "":
-                            if bold:
-                                prefix = "**"
-                                suffix += "**"
-                            if italic:
-                                prefix += "_"
-                                suffix = "_" + suffix
+            hdr_string = hdr_info.get_header_id(spans[0])
+            if hdr_string and hdr_string == prev_hdr_string:
+                out_string = out_string[:-1] + " " + text + "\n"
+                continue
+            prev_hdr_string = hdr_string
 
-                        ltext = resolve_links(links, s)
-                        if ltext:
-                            text = f"{hdr_string}{prefix}{ltext}{suffix} "
-                        else:
-                            text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
-                        text = (
-                            text.replace("<", "&lt;")
-                            .replace(">", "&gt;")
-                            .replace(chr(0xF0B7), "-")
-                            .replace(chr(0xB7), "-")
-                            .replace(chr(8226), "-")
-                            .replace(chr(9679), "-")
-                        )
-                        out_string += text
-                previous_y = this_y
-                if not code:
-                    out_string += "\n"
-            out_string += "\n"
+            for i, s in enumerate(spans):  # iterate spans of the line
+                # this line is not all-mono, so switch off "code" mode
+                if code:  # still in code output mode?
+                    out_string += "```\n"  # switch of code mode
+                    code = False
+                # decode font properties
+                mono = s["flags"] & 8
+                bold = s["flags"] & 16
+                italic = s["flags"] & 2
+
+                if mono:
+                    # this is text in some monospaced font
+                    out_string += f"`{s['text'].strip()}` "
+                else:  # not a mono text
+                    prefix = ""
+                    suffix = ""
+                    if hdr_string == "":
+                        if bold:
+                            prefix = "**"
+                            suffix += "**"
+                        if italic:
+                            prefix += "_"
+                            suffix = "_" + suffix
+
+                    ltext = resolve_links(links, s)
+                    if ltext:
+                        text = f"{hdr_string}{prefix}{ltext}{suffix} "
+                    else:
+                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+
+                    if text.startswith(bullet):
+                        text = "-  " + text[1:]
+                    out_string += text
+            if not code:
+                out_string += "\n"
+        out_string += "\n"
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
-        return out_string.replace(" \n", "\n")
-
-    hdr_prefix = IdentifyHeaders(doc, pages=pages)
-    md_string = ""
-
-    for pno in pages:
-        page = doc[pno]
-        # 1. first locate all tables on page
-        tabs = page.find_tables()
-
-        # 2. make a list of table boundary boxes, sort by top-left corner.
-        # Must include the header bbox, which may be external.
-        tab_rects = sorted(
-            [
-                (fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox), i)
-                for i, t in enumerate(tabs.tables)
-            ],
-            key=lambda r: (r[0].y0, r[0].x0),
+        return (
+            out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
         )
 
-        # 3. final list of all text and table rectangles
-        text_rects = []
-        # compute rectangles outside tables and fill final rect list
-        for i, (r, idx) in enumerate(tab_rects):
-            if i == 0:  # compute rect above all tables
-                tr = page.rect
-                tr.y1 = r.y0
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
-                text_rects.append(("table", r, idx))
-                continue
-            # read previous rectangle in final list: always a table!
-            _, r0, idx0 = text_rects[-1]
+    def is_in_rects(rect, rect_list):
+        """Check if rect is contained in a rect of the list."""
+        for i, r in enumerate(rect_list, start=1):
+            if rect in r:
+                return i
+        return 0
 
-            # check if a non-empty text rect is fitting in between tables
-            tr = page.rect
-            tr.y0 = r0.y1
-            tr.y1 = r.y0
-            if not tr.is_empty:  # empty if two tables overlap vertically!
-                text_rects.append(("text", tr, 0))
+    def intersects_rects(rect, rect_list):
+        """Check if middle of rect is contained in a rect of the list."""
+        for i, r in enumerate(rect_list, start=1):
+            if (rect.tl + rect.br) / 2 in r:  # middle point is inside r
+                return i
+        return 0
 
-            text_rects.append(("table", r, idx))
+    def output_tables(tabs, text_rect, tab_rects):
+        """Output and remove tables above text rectangle."""
+        this_md = ""  # markdown string for table content
+        if text_rect is not None:  # select tables above the text block
+            for i, trect in sorted(
+                [j for j in tab_rects.items() if j[1].y1 <= text_rect.y0],
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                this_md += tabs[i].to_markdown(clean=False)
+                del tab_rects[i]
 
-            # there may also be text below all tables
-            if i == len(tab_rects) - 1:
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
+        else:  # output all remaining table
+            for i, trect in sorted(
+                tab_rects.items(),
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                this_md += tabs[i].to_markdown(clean=False)
+                del tab_rects[i]
+        return this_md
 
-        if not text_rects:  # this will happen for table-free pages
-            text_rects.append(("text", page.rect, 0))
-        else:
-            rtype, r, idx = text_rects[-1]
-            if rtype == "table":
-                tr = page.rect
-                tr.y0 = r.y1
-                if not tr.is_empty:
-                    text_rects.append(("text", tr, 0))
+    def output_images(text_rect, img_rects):
+        """Output and remove images and graphics above text rectangle."""
+        this_md = ""  # markdown string
+        if text_rect is not None:  # select tables above the text block
+            for i, img_rect in sorted(
+                [j for j in img_rects.items() if j[1].y1 <= text_rect.y0],
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                pathname = save_image(page, img_rect, i)
+                this_md += GRAPHICS_TEXT % (pathname, pathname)
+                del img_rects[i]
 
-        # we have all rectangles and can start outputting their contents
-        for rtype, r, idx in text_rects:
-            if rtype == "text":  # a text rectangle
-                md_string += write_text(page, r, hdr_prefix)  # write MD content
-                md_string += "\n"
-            else:  # a table rect
-                md_string += tabs[idx].to_markdown(clean=False)
+        else:  # output all remaining table
+            for i, img_rect in sorted(
+                img_rects.items(),
+                key=lambda j: (j[1].y1, j[1].x0),
+            ):
+                pathname = save_image(page, img_rect, i)
+                this_md += GRAPHICS_TEXT % (pathname, pathname)
+                del img_rects[i]
+        return this_md
 
+    def get_metadata(doc, pno):
+        meta = doc.metadata.copy()
+        meta["file_path"] = doc.name
+        meta["page_count"] = doc.page_count
+        meta["page"] = pno + 1
+        return meta
+
+    def get_page_output(doc, pno, textflags):
+        page = doc[pno]
+        md_string = ""
+        links = [l for l in page.get_links() if l["kind"] == 2]
+        textpage = page.get_textpage(flags=textflags)
+        # First locate all tables on page
+        tabs = page.find_tables()
+
+        # Second, make a list of table boundary boxes.
+        # Must include the header bbox (may be outside tab.bbox)
+        tab_rects = {}
+        for i, t in enumerate(tabs):
+            tab_rects[i] = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+        tab_rects0 = list(tab_rects.values())
+
+        # Select paths that are not contained in any table
+        page_clip = page.rect + (36, 36, -36, -36)
+        paths = [
+            p
+            for p in page.get_drawings()
+            if not intersects_rects(p["rect"], tab_rects0) and p["rect"] in page_clip
+        ]
+
+        # determine vector graphics outside any tables
+        vg_clusters = page.cluster_drawings(drawings=paths)
+        vg_clusters0 = [
+            r
+            for r in vg_clusters
+            if not intersects_rects(r, tab_rects0) and r.height > 20
+        ] + [fitz.Rect(i["bbox"]) for i in page.get_image_info()]
+        vg_clusters = dict((i, r) for i, r in enumerate(vg_clusters0))
+        # Determine text column bboxes on page, avoiding tables and graphics
+        text_rects = column_boxes(
+            page,
+            paths=paths,
+            textpage=textpage,
+            avoid=tab_rects0 + vg_clusters0,
+        )
+        """Extract markdown text iterating over text rectangles.
+        We also output any tables. They may live above, below or inside
+        the text rectangles.
+        """
+        for text_rect in text_rects:
+            # outpt tables above this block of text
+            md_string += output_tables(tabs, text_rect, tab_rects)
+            md_string += output_images(text_rect, vg_clusters)
+
+            # output text inside this rectangle
+            md_string += write_text(
+                textpage,
+                text_rect,
+                tabs=tabs,
+                tab_rects=tab_rects,
+                img_rects=vg_clusters,
+                links=links,
+                hdr_info=hdr_info,
+            )
+
+        # write remaining tables.
+        md_string += output_tables(tabs, None, tab_rects)
+        md_string += output_images(None, tab_rects)
         md_string += "\n-----\n\n"
+        return md_string
 
-    return md_string
+    if page_chunks is False:
+        document_output = ""
+    else:
+        document_output = []
+
+    textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
+    for pno in list(pages):
+        page_output = get_page_output(doc, pno, textflags)
+        if page_chunks is False:
+            document_output += page_output
+        else:
+            metadata = get_metadata(doc, pno)
+            document_output.append({"metadata": metadata, "text": page_output})
+
+    return document_output
 
 
 if __name__ == "__main__":
-    import os
     import sys
     import time
     import pathlib

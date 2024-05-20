@@ -2,22 +2,24 @@ import asyncio
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import fitz
+try:
+    import pymupdf as fitz  # available with v1.24.3
+except ImportError:
+    import fitz
+
 from fitz import Document as FitzDocument
+from pymupdf4llm import to_markdown, IdentifyHeaders
 
 try:
     from llama_index.core.readers.base import BaseReader
     from llama_index.core.schema import Document as LlamaIndexDocument
 
-    print("All imports are successful.")
+    print("Successfully imported LlamaIndex")
 except ImportError:
-    raise NotImplementedError("Please install 'llama_index' is needed.")
+    raise NotImplementedError("Please install required 'llama_index'.")
 
 
-import pymupdf4llm
-
-
-class PDFMardownReader(BaseReader):
+class PDFMarkdownReader(BaseReader):
     """Read PDF files using PyMuPDF library."""
 
     use_doc_meta: bool = True
@@ -56,11 +58,18 @@ class PDFMardownReader(BaseReader):
         if extra_info and not isinstance(extra_info, dict):
             raise TypeError("extra_info must be a dictionary.")
 
-        doc: FitzDocument = fitz.open(file_path)
+        # extract text header information
+        hdr_info = IdentifyHeaders(file_path)
 
+        doc: FitzDocument = fitz.open(file_path)
         docs = []
+
         for page in doc:
-            docs.append(self._process_doc_page(doc, extra_info, file_path, page.number))
+            docs.append(
+                self._process_doc_page(
+                    doc, extra_info, file_path, page.number, hdr_info
+                )
+            )
         return docs
 
     async def aload_data(
@@ -88,12 +97,17 @@ class PDFMardownReader(BaseReader):
         if extra_info and not isinstance(extra_info, dict):
             raise TypeError("extra_info must be a dictionary.")
 
-        doc: FitzDocument = fitz.open(file_path)
+        # extract text header information
+        hdr_info = IdentifyHeaders(file_path)
 
+        doc: FitzDocument = fitz.open(file_path)
         tasks = []
+
         for page in doc:
             tasks.append(
-                self._process_doc_page(doc, extra_info, file_path, page.number)
+                self._process_doc_page(
+                    doc, extra_info, file_path, page.number, hdr_info
+                )
             )
         return await asyncio.gather(*tasks)
 
@@ -106,6 +120,7 @@ class PDFMardownReader(BaseReader):
         extra_info: Dict[str, Any],
         file_path: str,
         page_number: int,
+        hdr_info: IdentifyHeaders,
     ):
         """Processes a single page of a PDF document."""
         if self.use_doc_meta:
@@ -114,7 +129,9 @@ class PDFMardownReader(BaseReader):
         if self.meta_filter:
             extra_info = self.meta_filter(extra_info)
 
-        text = pymupdf4llm.to_markdown(doc, [page_number])
+        text = to_markdown(
+            doc, pages=[page_number], hdr_info=hdr_info, write_images=False
+        )
         return LlamaIndexDocument(text=text, extra_info=extra_info)
 
     def _process_doc_meta(

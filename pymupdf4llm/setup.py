@@ -30,6 +30,6 @@ setuptools.setup(
     classifiers=classifiers,
     project_urls={},
     package_data={
-        "pymupdf4llm": ["LICENSE", "helpers/*.py"],
+        "pymupdf4llm": ["LICENSE", "helpers/*.py", "llama/*.py"],
     },
 )
