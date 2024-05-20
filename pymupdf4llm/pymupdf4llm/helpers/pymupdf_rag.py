@@ -167,6 +167,7 @@ def to_markdown(
         return os.path.basename(image_path)
 
     def write_text(
+        page,
         textpage: fitz.TextPage,
         clip: fitz.Rect,
         tabs=None,
@@ -347,7 +348,7 @@ def to_markdown(
                 del tab_rects[i]
         return this_md
 
-    def output_images(text_rect, img_rects):
+    def output_images(page, text_rect, img_rects):
         """Output and remove images and graphics above text rectangle."""
         this_md = ""  # markdown string
         if text_rect is not None:  # select tables above the text block
@@ -421,10 +422,11 @@ def to_markdown(
         for text_rect in text_rects:
             # outpt tables above this block of text
             md_string += output_tables(tabs, text_rect, tab_rects)
-            md_string += output_images(text_rect, vg_clusters)
+            md_string += output_images(page, text_rect, vg_clusters)
 
             # output text inside this rectangle
             md_string += write_text(
+                page,
                 textpage,
                 text_rect,
                 tabs=tabs,
