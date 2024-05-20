@@ -43,8 +43,11 @@ try:
 except ImportError:
     import fitz
 
-from get_text_lines import get_raw_lines, is_white
-from multi_column import column_boxes
+from pymupdf4llm.helpers.get_text_lines import (
+    get_raw_lines,
+    is_white,
+)
+from pymupdf4llm.helpers.multi_column import column_boxes
 
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
@@ -164,6 +167,7 @@ def to_markdown(
         return os.path.basename(image_path)
 
     def write_text(
+        page,
         textpage: fitz.TextPage,
         clip: fitz.Rect,
         tabs=None,
@@ -197,7 +201,6 @@ def to_markdown(
         prev_hdr_string = None
 
         for lrect, spans in nlines:
-
             # there may tables or images inside the text block: skip them
             if intersects_rects(lrect, tab_rects0) or intersects_rects(
                 lrect, img_rects0
@@ -345,8 +348,10 @@ def to_markdown(
                 del tab_rects[i]
         return this_md
 
-    def output_images(text_rect, img_rects):
+    def output_images(page, text_rect, img_rects):
         """Output and remove images and graphics above text rectangle."""
+        if img_rects is None:
+            return ""
         this_md = ""  # markdown string
         if text_rect is not None:  # select tables above the text block
             for i, img_rect in sorted(
@@ -419,10 +424,11 @@ def to_markdown(
         for text_rect in text_rects:
             # outpt tables above this block of text
             md_string += output_tables(tabs, text_rect, tab_rects)
-            md_string += output_images(text_rect, vg_clusters)
+            md_string += output_images(page, text_rect, vg_clusters)
 
             # output text inside this rectangle
             md_string += write_text(
+                page,
                 textpage,
                 text_rect,
                 tabs=tabs,
@@ -434,7 +440,7 @@ def to_markdown(
 
         # write remaining tables.
         md_string += output_tables(tabs, None, tab_rects)
-        md_string += output_images(None, tab_rects)
+        md_string += output_images(None, tab_rects, None)
         md_string += "\n-----\n\n"
         return md_string
 
@@ -456,9 +462,9 @@ def to_markdown(
 
 
 if __name__ == "__main__":
+    import pathlib
     import sys
     import time
-    import pathlib
 
     try:
         filename = sys.argv[1]
