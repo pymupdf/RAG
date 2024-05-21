@@ -27,7 +27,7 @@ License GNU Affero GPL 3.0
 """
 
 import os
-import string
+from typing import Optional, TypeVar, Type, Union
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -47,7 +47,12 @@ GRAPHICS_TEXT = "\n![%s](%s)\n"
 class IdentifyHeaders:
     """Compute data for identifying header text."""
 
-    def __init__(self, doc, pages: list = None, body_limit: float = None):
+    def __init__(
+        self,
+        doc,
+        pages: Optional[Union[list[int], range]] = None,
+        body_limit: Optional[float] = None,
+    ):
         """Read all text and make a dictionary of fontsizes.
 
         Args:
@@ -114,14 +119,18 @@ class IdentifyHeaders:
         return hdr_id
 
 
+ChunksType = list[dict]
+ExpectedType = TypeVar("ExpectedType", bound=Union[ChunksType, str])
+
+
 def to_markdown(
     doc: fitz.Document | str,
     *,
-    pages: list | range | None = None,
+    pages: list[int] | range | None = None,
     hdr_info: IdentifyHeaders | None = None,
     write_images: bool = False,
-    page_chunks: bool = False,
-) -> str | list[dict]:
+    expected_type: Type[ExpectedType] = str,
+) -> ExpectedType:
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
@@ -167,7 +176,7 @@ def to_markdown(
         img_rects: dict | None = None,
         links: list | None = None,
         hdr_info=None,
-    ) -> string:
+    ) -> str:
         """Output the text found inside the given clip.
 
         This is an alternative for plain text in that it outputs
@@ -205,17 +214,19 @@ def to_markdown(
             ):
                 continue
 
-            # Pick up tables intersecting this text block
-            for i, tab_rect in sorted(
-                [
-                    j
-                    for j in tab_rects.items()
-                    if j[1].y1 <= lrect.y0 and not (j[1] & clip).is_empty
-                ],
-                key=lambda j: (j[1].y1, j[1].x0),
-            ):
-                out_string += "\n" + tabs[i].to_markdown(clean=False) + "\n"
-                del tab_rects[i]
+            if tab_rects:
+                # Pick up tables intersecting this text block
+                for i, _ in sorted(
+                    [
+                        j
+                        for j in tab_rects.items()
+                        if j[1].y1 <= lrect.y0 and not (j[1] & clip).is_empty
+                    ],
+                    key=lambda j: (j[1].y1, j[1].x0),
+                ):
+                    if tabs is not None:
+                        out_string += "\n" + tabs[i].to_markdown(clean=False) + "\n"
+                    del tab_rects[i]
 
             # Pick up images / graphics intersecting this text block
             for i, img_rect in sorted(
@@ -453,21 +464,25 @@ def to_markdown(
         md_string += "\n-----\n\n"
         return md_string
 
-    if page_chunks is False:
-        document_output = ""
-    else:
-        document_output = []
-
     textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
-    for pno in list(pages):
-        page_output = get_page_output(doc, pno, textflags)
-        if page_chunks is False:
-            document_output += page_output
-        else:
-            metadata = get_metadata(doc, pno)
-            document_output.append({"metadata": metadata, "text": page_output})
 
-    return document_output
+    if expected_type == str:
+        document_output_str: str = ""
+        for pno in list(pages):
+            page_output = get_page_output(doc, pno, textflags)
+            document_output_str += page_output
+        return document_output_str  # type: ignore
+    elif expected_type == ChunksType:
+        document_output_chunks: ChunksType = []
+        for pno in list(pages):
+            page_output = get_page_output(doc, pno, textflags)
+            metadata = get_metadata(doc, pno)
+            document_output_chunks.append({"metadata": metadata, "text": page_output})
+            return document_output_chunks  # type: ignore
+    else:
+        raise ValueError(
+            f"expected_type must be str or ChunksType, not {expected_type}"
+        )
 
 
 if __name__ == "__main__":

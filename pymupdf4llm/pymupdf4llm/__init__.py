@@ -1,4 +1,4 @@
-from .helpers.pymupdf_rag import to_markdown, IdentifyHeaders
+from .helpers.pymupdf_rag import to_markdown, IdentifyHeaders, ChunksType
 
 __version__ = "0.0.3"
 version = __version__
