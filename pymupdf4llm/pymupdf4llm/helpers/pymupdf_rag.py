@@ -16,15 +16,6 @@ It will produce a markdown text file called "input.md".
 Text will be sorted in Western reading order. Any table will be included in
 the text in markdwn format as well.
 
-Use in some other script
--------------------------
-import fitz
-from to_markdown import to_markdown
-
-doc = fitz.open("input.pdf")
-page_list = [ list of 0-based page numbers ]
-md_text = to_markdown(doc, pages=page_list)
-
 Dependencies
 -------------
 PyMuPDF v1.24.2 or later
@@ -43,10 +34,7 @@ try:
 except ImportError:
     import fitz
 
-from pymupdf4llm.helpers.get_text_lines import (
-    get_raw_lines,
-    is_white,
-)
+from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
 
 if fitz.pymupdf_version_tuple < (1, 24, 2):
@@ -127,13 +115,13 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: fitz.Document,
+    doc: fitz.Document | str,
     *,
-    pages: list = None,
-    hdr_info: IdentifyHeaders = None,
-    write_images=False,
-    page_chunks=False,
-) -> str:
+    pages: list | range | None = None,
+    hdr_info: IdentifyHeaders | None = None,
+    write_images: bool = False,
+    page_chunks: bool = False,
+) -> str | list[dict]:
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
@@ -146,7 +134,7 @@ def to_markdown(
         hdr_info = IdentifyHeaders(doc)
 
     def resolve_links(links, span):
-        """Accept a span bbox and return a markdown link string."""
+        """Accept a span and return a markdown link string."""
         bbox = fitz.Rect(span["bbox"])  # span bbox
         # a link should overlap at least 70% of the span
         bbox_area = 0.7 * abs(bbox)
@@ -158,6 +146,10 @@ def to_markdown(
             return text
 
     def save_image(page, rect, i):
+        """Optionally render the rect part of a page.
+
+        In any case return the image filename.
+        """
         filename = page.parent.name.replace("\\", "/")
         image_path = f"{filename}-{page.number}-{i}.png"
         if write_images is True:
@@ -167,13 +159,13 @@ def to_markdown(
         return os.path.basename(image_path)
 
     def write_text(
-        page,
+        page: fitz.Page,
         textpage: fitz.TextPage,
         clip: fitz.Rect,
         tabs=None,
-        tab_rects: dict = None,
-        img_rects: dict = None,
-        links: list = None,
+        tab_rects: dict | None = None,
+        img_rects: dict | None = None,
+        links: list | None = None,
         hdr_info=None,
     ) -> string:
         """Output the text found inside the given clip.
@@ -184,12 +176,18 @@ def to_markdown(
         inline code, bold, italic and bold-italic styling.
         There is also some effort for list supported (ordered / unordered) in
         that typical characters are replaced by respective markdown characters.
+
+        'tab_rects'/'img_rects' are dictionaries of table, respectively image
+        or vector graphic rectangles.
+        General Markdown text generation skips these areas. Tables are written
+        via their own 'to_markdown' method. Images and vector graphics are
+        optionally saved as files and pointed to by respective markdown text.
         """
         if clip is None:
             clip = textpage.rect
         out_string = ""
 
-        # This is a list of tuples (linerect, [spanlist])
+        # This is a list of tuples (linerect, spanlist)
         nlines = get_raw_lines(textpage, clip=clip, tolerance=3)
 
         tab_rects0 = list(tab_rects.values())
@@ -260,12 +258,15 @@ def to_markdown(
                 and lrect.y1 - prev_lrect.y1 > lrect.height * 1.5
                 or span0["text"].startswith("[")
                 or span0["text"].startswith(bullet)
-                or span0["flags"] & 1
+                or span0["flags"] & 1  # superscript?
             ):
                 out_string += "\n"
             prev_lrect = lrect
 
+            # if line is a header, this will return multiple "#" characters
             hdr_string = hdr_info.get_header_id(spans[0])
+
+            # intercept if header text has been broken in multiple lines
             if hdr_string and hdr_string == prev_hdr_string:
                 out_string = out_string[:-1] + " " + text + "\n"
                 continue
@@ -295,6 +296,7 @@ def to_markdown(
                             prefix += "_"
                             suffix = "_" + suffix
 
+                    # convert intersecting link into markdown syntax
                     ltext = resolve_links(links, s)
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
@@ -329,7 +331,7 @@ def to_markdown(
         return 0
 
     def output_tables(tabs, text_rect, tab_rects):
-        """Output and remove tables above text rectangle."""
+        """Output tables above a text rectangle."""
         this_md = ""  # markdown string for table content
         if text_rect is not None:  # select tables above the text block
             for i, trect in sorted(
@@ -337,7 +339,7 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
-                del tab_rects[i]
+                del tab_rects[i]  # do not touch this table twice
 
         else:  # output all remaining table
             for i, trect in sorted(
@@ -345,11 +347,11 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
-                del tab_rects[i]
+                del tab_rects[i]  # do not touch this table twice
         return this_md
 
     def output_images(page, text_rect, img_rects):
-        """Output and remove images and graphics above text rectangle."""
+        """Output images and graphics above text rectangle."""
         if img_rects is None:
             return ""
         this_md = ""  # markdown string
@@ -360,7 +362,7 @@ def to_markdown(
             ):
                 pathname = save_image(page, img_rect, i)
                 this_md += GRAPHICS_TEXT % (pathname, pathname)
-                del img_rects[i]
+                del img_rects[i]  # do not touch this image twice
 
         else:  # output all remaining table
             for i, img_rect in sorted(
@@ -369,7 +371,7 @@ def to_markdown(
             ):
                 pathname = save_image(page, img_rect, i)
                 this_md += GRAPHICS_TEXT % (pathname, pathname)
-                del img_rects[i]
+                del img_rects[i]  # do not touch this image twice
         return this_md
 
     def get_metadata(doc, pno):
@@ -380,22 +382,28 @@ def to_markdown(
         return meta
 
     def get_page_output(doc, pno, textflags):
+        """Process one page."""
         page = doc[pno]
         md_string = ""
+
+        # extract all links on page
         links = [l for l in page.get_links() if l["kind"] == 2]
+
+        # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags)
-        # First locate all tables on page
+
+        # Locate all tables on page
         tabs = page.find_tables()
 
-        # Second, make a list of table boundary boxes.
-        # Must include the header bbox (may be outside tab.bbox)
+        # Make a list of table boundary boxes.
+        # Must include the header bbox (may exist outside tab.bbox)
         tab_rects = {}
         for i, t in enumerate(tabs):
             tab_rects[i] = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
         tab_rects0 = list(tab_rects.values())
 
         # Select paths that are not contained in any table
-        page_clip = page.rect + (36, 36, -36, -36)
+        page_clip = page.rect + (36, 36, -36, -36)  # ignore full page graphics
         paths = [
             p
             for p in page.get_drawings()
@@ -409,6 +417,7 @@ def to_markdown(
             for r in vg_clusters
             if not intersects_rects(r, tab_rects0) and r.height > 20
         ] + [fitz.Rect(i["bbox"]) for i in page.get_image_info()]
+
         vg_clusters = dict((i, r) for i, r in enumerate(vg_clusters0))
         # Determine text column bboxes on page, avoiding tables and graphics
         text_rects = column_boxes(
@@ -422,7 +431,7 @@ def to_markdown(
         the text rectangles.
         """
         for text_rect in text_rects:
-            # outpt tables above this block of text
+            # output tables above this block of text
             md_string += output_tables(tabs, text_rect, tab_rects)
             md_string += output_images(page, text_rect, vg_clusters)
 

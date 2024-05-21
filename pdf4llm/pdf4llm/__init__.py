@@ -2,7 +2,7 @@ import pymupdf4llm
 from pymupdf4llm import *
 
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 version = __version__
 version_tuple = tuple(map(int, version.split(".")))
 

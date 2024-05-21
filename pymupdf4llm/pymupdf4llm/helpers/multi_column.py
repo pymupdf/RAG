@@ -49,6 +49,15 @@ Usage
   for rect in bboxes:
       print(page.get_text(clip=rect, sort=True))
   ----------------------------------------------------------------------------------
+
+Dependencies
+-------------
+PyMuPDF v1.24.2 or later
+
+Copyright and License
+----------------------
+Copyright 2024 Artifex Software, Inc.
+License GNU Affero GPL 3.0
 """
 
 import string

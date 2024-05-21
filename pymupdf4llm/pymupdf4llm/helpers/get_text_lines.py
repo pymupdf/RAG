@@ -1,6 +1,24 @@
-import fitz
+"""
+This script accepts a PDF document filename and converts it to a text file.
+
+
+Dependencies
+-------------
+PyMuPDF v1.24.2 or later
+
+Copyright and License
+----------------------
+Copyright 2024 Artifex Software, Inc.
+License GNU Affero GPL 3.0
+"""
+
+import string
 import sys
-import pathlib, string
+
+try:
+    import pymupdf as fitz  # available with v1.24.3
+except ImportError:
+    import fitz
 
 WHITE = set(string.whitespace)
 
@@ -192,6 +210,8 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
 
 
 if __name__ == "__main__":
+    import pathlib
+
     filename = sys.argv[1]
     doc = fitz.open(filename)
     text = ""

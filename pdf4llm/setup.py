@@ -17,7 +17,7 @@ requires = ["pymupdf4llm"]
 
 setuptools.setup(
     name="pdf4llm",
-    version="0.0.8",
+    version="0.0.9",
     author="Artifex",
     author_email="support@artifex.com",
     description="PyMuPDF Utilities for LLM/RAG",
