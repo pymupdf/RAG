@@ -74,30 +74,6 @@ def test_load_data_with_invalid_extra_info():
 
 
 @pytest.mark.asyncio
-async def test_aload_data():
-    # Arrange
-    # ---
-    pdf_reader = PDFMarkdownReader(use_meta=True)
-    extra_info = {"test_key": "test_value"}
-    path = _get_test_file_path(PDF, __file__)
-
-    # Act
-    # ---
-    documents = await pdf_reader.aload_data(path, extra_info)
-
-    # Assert
-    # ---
-    expected_key = "test_key"
-    expected_value = "test_value"
-
-    assert isinstance(documents, list)
-    for doc in documents:
-        assert expected_key in doc.metadata
-        assert expected_value in doc.metadata.values()
-        assert isinstance(doc, LlamaIndexDocument)
-
-
-@pytest.mark.asyncio
 async def test_aload_data_with_invalid_file_path():
     # Arrange
     # ---

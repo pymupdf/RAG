@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -23,15 +22,12 @@ except ImportError:
 class PDFMarkdownReader(BaseReader):
     """Read PDF files using PyMuPDF library."""
 
-    use_doc_meta: bool = True
     meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
 
     def __init__(
         self,
-        use_doc_meta: bool = True,
         meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     ):
-        self.use_doc_meta = use_doc_meta
         self.meta_filter = meta_filter
 
     def load_data(
@@ -73,45 +69,6 @@ class PDFMarkdownReader(BaseReader):
             )
         return docs
 
-    async def aload_data(
-        self,
-        file_path: Union[Path, str],
-        extra_info: Optional[Dict] = None,
-        **load_kwargs: Any,
-    ) -> List[LlamaIndexDocument]:
-        """Asynchronously loads list of documents from PDF file and also accepts extra information in dict format.
-
-        Args:
-            file_path (Union[Path, str]): The path to the PDF file.
-            extra_info (Optional[Dict], optional): A dictionary containing extra information. Defaults to None.
-            **load_kwargs (Any): Additional keyword arguments to be passed to the load method.
-
-        Returns:
-            List[LlamaIndexDocument]: A list of LlamaIndexDocument objects.
-        """
-        if not isinstance(file_path, str) and not isinstance(file_path, Path):
-            raise TypeError("file_path must be a string or Path.")
-
-        if not extra_info:
-            extra_info = {}
-
-        if extra_info and not isinstance(extra_info, dict):
-            raise TypeError("extra_info must be a dictionary.")
-
-        # extract text header information
-        hdr_info = IdentifyHeaders(file_path)
-
-        doc: FitzDocument = fitz.open(file_path)
-        tasks = []
-
-        for page in doc:
-            tasks.append(
-                self._process_doc_page(
-                    doc, extra_info, file_path, page.number, hdr_info
-                )
-            )
-        return await asyncio.gather(*tasks)
-
     # Helpers
     # ---
 
@@ -124,8 +81,7 @@ class PDFMarkdownReader(BaseReader):
         hdr_info: IdentifyHeaders,
     ):
         """Processes a single page of a PDF document."""
-        if self.use_doc_meta:
-            extra_info = self._process_doc_meta(doc, file_path, page_number, extra_info)
+        extra_info = self._process_doc_meta(doc, file_path, page_number, extra_info)
 
         if self.meta_filter:
             extra_info = self.meta_filter(extra_info)
