@@ -111,7 +111,7 @@ html_theme_options = {
             # Label for this link
             "name": "PyPI",
             # URL where the link will redirect
-            "url": "https://pypi.org/project/pdf4llm/",  # required
+            "url": "https://pypi.org/project/pymupdf4llm/",  # required
             # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
             "icon": "fa-brands fa-python",
             # The type of image to be used (see below for details)
