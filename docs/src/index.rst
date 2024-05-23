@@ -1,14 +1,21 @@
 .. include:: header.rst
 
 
+
 PyMuPDF4LLM
 ===========================================================================
 
 **PyMuPDF4LLM** is based on `PyMuPDF <https://pymupdf.readthedocs.io>`_ - the fastest **PDF** extraction tool for **Python**.
 
-This documentation explains how to use the **Python PDF4LLM** package as well as providing links to other related **RAG** & **LLM** resources for **PyMuPDF**.
+This documentation explains how to use the **PyMuPDF4LLM** package as well as providing links to other related **RAG** & **LLM** resources for **PyMuPDF**.
 
+Features
+-------------------------------
 
+    - Support for multi-column pages
+    - Support for image and vector graphics extraction (and inclusion of references in the MD text)
+    - Support for page chunking output.
+    - Direct support for output as LlamaIndex Documents.
 
 - This package converts the pages of a **PDF** to text in **Markdown** format using **PyMuPDF**.
 
@@ -21,10 +28,8 @@ This documentation explains how to use the **Python PDF4LLM** package as well as
 - By default, all document pages are processed. If desired, a subset of pages can be specified by providing a list of `0`-based page numbers.
 
 
-Using in LLM / RAG Applications
---------------------------------------------------------------
-
-To retrieve your document content in **Markdown** simply install the package and then use a couple of lines of **Python** code to get results.
+Installation
+----------------
 
 
 Install the package via **pip** with:
@@ -33,6 +38,23 @@ Install the package via **pip** with:
 .. code-block:: bash
 
     pip install pymupdf4llm
+
+
+
+Using in LLM / RAG Applications
+--------------------------------------------------------------
+
+**PyMuPDF4LLM** is aimed to make it easier to extract **PDF** content in the format you need for **LLM** & **RAG** environments. It supports :ref:`Markdown extraction <extracting_as_md>` as well as :ref:`LlamaIndex document output <extracting_as_llamaindex>`.
+
+
+
+.. _extracting_as_md:
+
+Extracting a file as **Markdown**
+--------------------------------------------------------------
+
+To retrieve your document content in **Markdown** simply install the package and then use a couple of lines of **Python** code to get results.
+
 
 
 Then in your **Python** script do:
@@ -57,6 +79,28 @@ If you want to store your **Markdown** file, e.g. store as a UTF8-encoded file, 
     import pathlib
     pathlib.Path("output.md").write_bytes(md_text.encode())
 
+
+
+.. _extracting_as_llamaindex:
+
+Extracting a file as a **LlamaIndex** document
+--------------------------------------------------------------
+
+**PyMuPDF4LLM** supports direct conversion to a **LLamaIndex** document. A document is first converted into **Markdown** format and then a **LlamaIndex** document is returned as follows:
+
+
+
+.. code-block:: python
+
+    import pymupdf4llm
+    llama_reader = pymupdf4llm.LlamaMarkdownReader()
+    llama_docs = llama_reader.load_data("input.pdf")
+
+
+API
+-------
+
+See :doc:`api`.
 
 Further Resources
 -------------------
