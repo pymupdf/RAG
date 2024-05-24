@@ -44,6 +44,38 @@ bullet = ("* ", chr(0xF0B7), chr(0xB7), chr(8226), chr(9679))
 GRAPHICS_TEXT = "\n![%s](%s)\n"
 
 
+def compute_header_footer_coordinates(page):
+    """
+    Compute the coordinates of the header and footer on a given page.
+
+    Args:
+        page (PyMuPDF.Page): The page object representing the PDF page.
+
+    Returns:
+        tuple: A tuple containing the coordinates of the header and footer.
+            The header coordinates are represented as (x0, y0, x1, y1),
+            where (x0, y0) is the top-left corner and (x1, y1) is the bottom-right corner.
+            The footer coordinates are represented in the same format.
+    """
+    text_blocks = page.get_text("dict", sort=True)["blocks"]
+
+    # Determine the full page width
+    page_width = page.rect.width
+    page_height = page.rect.height
+
+    if len(text_blocks)>0:
+        header_text = text_blocks[0]  # Assuming header is the first block of text
+        footer_text = text_blocks[-1]  # Assuming footer is the last block of text
+     
+        # Adjust header and footer coordinates to cover the entire page width
+        header_coordinates = (0, 0, page_width, header_text["bbox"][3])
+        footer_coordinates = (0, footer_text["bbox"][1], page_width, page_height)
+    else:
+        return [0, 0, page_width, 0], [0, page_height, page_width, page_height]
+        
+    return header_coordinates, footer_coordinates
+
+
 class IdentifyHeaders:
     """Compute data for identifying header text."""
 
@@ -384,6 +416,17 @@ def to_markdown(
     def get_page_output(doc, pno, textflags):
         """Process one page."""
         page = doc[pno]
+        
+        # compute header and footer coordinates to exclude the content from these areas
+        header_coordinates, footer_coordinates = compute_header_footer_coordinates(page)
+        
+        # Add the redaction rectangle to the page
+        page.add_redact_annot(header_coordinates)
+        page.apply_redactions()
+        
+        page.add_redact_annot(footer_coordinates)
+        page.apply_redactions()
+            
         md_string = ""
 
         # extract all links on page
