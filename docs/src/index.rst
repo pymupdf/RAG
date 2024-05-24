@@ -15,9 +15,61 @@ Features
     - Support for multi-column pages
     - Support for image and vector graphics extraction (and inclusion of references in the MD text)
     - Support for page chunking output.
-    - Direct support for output as LlamaIndex Documents.
+    - Direct support for output as :ref:`LlamaIndex Documents <extracting_as_llamaindex>`.
 
-- This package converts the pages of a **PDF** to text in **Markdown** format using **PyMuPDF**.
+
+Document support
+~~~~~~~~~~~~~~~~~~~
+
+**PyMuPDF4LLM** supports the following file types for text extraction:
+
+
+.. list-table::
+   :header-rows: 0
+
+   * - **PDF**
+     - **DOCX**
+     - **XLSX**
+     - **PPTX**
+     - **HWPX**
+   * - .. image:: images/icons/icon-pdf.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-docx.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-xlsx.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-pptx.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-hangul.svg
+          :width: 40
+          :height: 40
+   * - **XPS**
+     - **EPUB**
+     - **MOBI**
+     - **FB2**
+     - **CBZ**
+   * - .. image:: images/icons/icon-xps.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-epub.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-mobi.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-fb2.svg
+          :width: 40
+          :height: 40
+     - .. image:: images/icons/icon-cbz.svg
+          :width: 40
+          :height: 40
+
+
+- This package converts the pages of a file to text in **Markdown** format using **PyMuPDF**.
 
 - Standard text and tables are detected, brought in the right reading sequence and then together converted to **GitHub**-compatible **Markdown** text.
 
