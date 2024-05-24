@@ -28,6 +28,7 @@ License GNU Affero GPL 3.0
 
 import os
 import string
+import typing
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -40,14 +41,19 @@ from pymupdf4llm.helpers.multi_column import column_boxes
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
-bullet = ("* ", chr(0xF0B7), chr(0xB7), chr(8226), chr(9679))
+bullet = ("- ", "* ", chr(0xF0A7), chr(0xF0B7), chr(0xB7), chr(8226), chr(9679))
 GRAPHICS_TEXT = "\n![%s](%s)\n"
 
 
 class IdentifyHeaders:
     """Compute data for identifying header text."""
 
-    def __init__(self, doc, pages: list = None, body_limit: float = None):
+    def __init__(
+        self,
+        doc: fitz.Document | str,
+        pages: list | range | None = None,
+        body_limit: float = 12,
+    ):
         """Read all text and make a dictionary of fontsizes.
 
         Args:
@@ -85,29 +91,33 @@ class IdentifyHeaders:
         self.header_id = {}
 
         # If not provided, choose the most frequent font size as body text.
-        # If no text at all on all pages, just use 12
-        if body_limit is None:
-            temp = sorted(
-                [(k, v) for k, v in fontsizes.items()],
-                key=lambda i: i[1],
-                reverse=True,
-            )
-            if temp:
-                body_limit = temp[0][0]
-            else:
-                body_limit = 12
+        # If no text at all on all pages, just use 12.
+        # In any case all fonts not exceeding
+        temp = sorted(
+            [(k, v) for k, v in fontsizes.items()],
+            key=lambda i: i[1],
+            reverse=True,
+        )
+        if temp:
+            b_limit = max(body_limit, temp[0][0])
+        else:
+            b_limit = body_limit
 
-        sizes = sorted([f for f in fontsizes.keys() if f > body_limit], reverse=True)
+        # identify up to 6 font sizes as header candidates
+        sizes = sorted(
+            [f for f in fontsizes.keys() if f > b_limit],
+            reverse=True,
+        )[:6]
 
         # make the header tag dictionary
         for i, size in enumerate(sizes):
             self.header_id[size] = "#" * (i + 1) + " "
 
-    def get_header_id(self, span):
+    def get_header_id(self, span: dict, **kwargs) -> str:
         """Return appropriate markdown header prefix.
 
-        Given a text span from a "dict"/"radict" extraction, determine the
-        markdown header prefix string of 0 to many concatenated '#' characters.
+        Given a text span from a "dict"/"rawdict" extraction, determine the
+        markdown header prefix string of 0 to n concatenated '#' characters.
         """
         fontsize = round(span["size"])  # compute fontsize
         hdr_id = self.header_id.get(fontsize, "")
@@ -118,20 +128,37 @@ def to_markdown(
     doc: fitz.Document | str,
     *,
     pages: list | range | None = None,
-    hdr_info: IdentifyHeaders | None = None,
+    hdr_info: typing.Any = None,
     write_images: bool = False,
     page_chunks: bool = False,
+    margins: float | typing.Iterable = (0, 50, 0, 50),
 ) -> str | list[dict]:
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
         doc = fitz.open(doc)
 
-    if not pages:  # use all pages if argument not given
-        pages = range(doc.page_count)
+    if pages is None:  # use all pages if no selection given
+        pages = list(range(doc.page_count))
 
-    if not isinstance(hdr_info, IdentifyHeaders):
+    if hasattr(margins, "__float__"):
+        margins = [margins] * 4
+    if len(margins) == 2:
+        margins = (0, margins[0], 0, margins[1])
+    if len(margins) != 4:
+        raise ValueError("margins must have length 2 or 4 or be a number.")
+    elif not all([hasattr(m, "__float__") for m in margins]):
+        raise ValueError("margin values must be numbers")
+
+    # If "hdr_info" is not an object having method "get_header_id", scan the
+    # document and use font sizes as header level indicators.
+    if callable(hdr_info):
+        get_header_id = hdr_info
+    elif hasattr(hdr_info, "get_header_id") and callable(hdr_info.get_header_id):
+        get_header_id = hdr_info.get_header_id
+    else:
         hdr_info = IdentifyHeaders(doc)
+        get_header_id = hdr_info.get_header_id
 
     def resolve_links(links, span):
         """Accept a span and return a markdown link string."""
@@ -146,17 +173,15 @@ def to_markdown(
             return text
 
     def save_image(page, rect, i):
-        """Optionally render the rect part of a page.
-
-        In any case return the image filename.
-        """
+        """Optionally render the rect part of a page."""
         filename = page.parent.name.replace("\\", "/")
         image_path = f"{filename}-{page.number}-{i}.png"
         if write_images is True:
             pix = page.get_pixmap(clip=rect)
             pix.save(image_path)
             del pix
-        return os.path.basename(image_path)
+            return os.path.basename(image_path)
+        return ""
 
     def write_text(
         page: fitz.Page,
@@ -166,7 +191,6 @@ def to_markdown(
         tab_rects: dict | None = None,
         img_rects: dict | None = None,
         links: list | None = None,
-        hdr_info=None,
     ) -> string:
         """Output the text found inside the given clip.
 
@@ -227,7 +251,8 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 pathname = save_image(page, img_rect, i)
-                out_string += GRAPHICS_TEXT % (pathname, pathname)
+                if pathname:
+                    out_string += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]
 
             text = " ".join([s["text"] for s in spans])
@@ -247,11 +272,11 @@ def to_markdown(
                 out_string += indent + text + "\n"
                 continue  # done with this line
 
-            bno = spans[0]["block"]  # block number of line
+            span0 = spans[0]
+            bno = span0["block"]  # block number of line
             if bno != prev_bno:
                 out_string += "\n"
                 prev_bno = bno
-            span0 = spans[0]
 
             if (  # check if we need another line break
                 prev_lrect
@@ -264,19 +289,24 @@ def to_markdown(
             prev_lrect = lrect
 
             # if line is a header, this will return multiple "#" characters
-            hdr_string = hdr_info.get_header_id(spans[0])
+            hdr_string = get_header_id(span0)
 
             # intercept if header text has been broken in multiple lines
             if hdr_string and hdr_string == prev_hdr_string:
                 out_string = out_string[:-1] + " " + text + "\n"
                 continue
+
             prev_hdr_string = hdr_string
+            if hdr_string.startswith("#"):  # if a header output and skip the rest
+                out_string += hdr_string + text + "\n"
+                continue
+
+            # this line is not all-mono, so switch off "code" mode
+            if code:  # still in code output mode?
+                out_string += "```\n"  # switch of code mode
+                code = False
 
             for i, s in enumerate(spans):  # iterate spans of the line
-                # this line is not all-mono, so switch off "code" mode
-                if code:  # still in code output mode?
-                    out_string += "```\n"  # switch of code mode
-                    code = False
                 # decode font properties
                 mono = s["flags"] & 8
                 bold = s["flags"] & 16
@@ -312,6 +342,7 @@ def to_markdown(
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
+
         return (
             out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
         )
@@ -361,7 +392,8 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 pathname = save_image(page, img_rect, i)
-                this_md += GRAPHICS_TEXT % (pathname, pathname)
+                if pathname:
+                    this_md += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]  # do not touch this image twice
 
         else:  # output all remaining table
@@ -370,7 +402,8 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 pathname = save_image(page, img_rect, i)
-                this_md += GRAPHICS_TEXT % (pathname, pathname)
+                if pathname:
+                    this_md += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]  # do not touch this image twice
         return this_md
 
@@ -381,8 +414,20 @@ def to_markdown(
         meta["page"] = pno + 1
         return meta
 
-    def get_page_output(doc, pno, textflags):
-        """Process one page."""
+    def get_page_output(doc, pno, margins, textflags):
+        """Process one page.
+
+        Args:
+            doc: fitz.Document
+            pno: 0-based page number
+            textflags: text extraction flag bits
+            images: store image information here
+            tables: store table information here
+            graphics: store graphics information here
+
+        Returns:
+            Markdown string of page content.
+        """
         page = doc[pno]
         md_string = ""
 
@@ -392,14 +437,25 @@ def to_markdown(
         # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags)
 
+        img_info = page.get_image_info()
+        images = img_info[:]
+        tables = []
+        graphics = []
+
         # Locate all tables on page
-        tabs = page.find_tables()
+        tabs = page.find_tables(strategy="lines_strict")
 
         # Make a list of table boundary boxes.
         # Must include the header bbox (may exist outside tab.bbox)
         tab_rects = {}
         for i, t in enumerate(tabs):
             tab_rects[i] = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            tab_dict = {
+                "bbox": tuple(tab_rects[i]),
+                "rows": t.row_count,
+                "columns": t.col_count,
+            }
+            tables.append(tab_dict)
         tab_rects0 = list(tab_rects.values())
 
         # Select paths that are not contained in any table
@@ -407,22 +463,45 @@ def to_markdown(
         paths = [
             p
             for p in page.get_drawings()
-            if not intersects_rects(p["rect"], tab_rects0) and p["rect"] in page_clip
+            if not intersects_rects(p["rect"], tab_rects0)
+            and p["rect"] in page_clip
+            and p["rect"].width < page_clip.width
+            and p["rect"].height < page_clip.height
         ]
 
-        # determine vector graphics outside any tables
-        vg_clusters = page.cluster_drawings(drawings=paths)
+        # Determine vector graphics outside any tables, filerting out any
+        # which contain no stroked paths
+        vg_clusters = []
+        for bbox in page.cluster_drawings(drawings=paths):
+            include = False
+            for p in [p for p in paths if p["rect"] in bbox]:
+                if p["type"] != "f":
+                    include = True
+                    break
+                if [item[0] for item in p["items"] if item[0] == "c"]:
+                    include = True
+                    break
+                if include is True:
+                    vg_clusters.append(bbox)
+
+        actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
+        print(f"before: {len(vg_clusters)=}")
         vg_clusters0 = [
             r
             for r in vg_clusters
             if not intersects_rects(r, tab_rects0) and r.height > 20
-        ] + [fitz.Rect(i["bbox"]) for i in page.get_image_info()]
+        ]
+
+        if write_images is True:
+            vg_clusters0 += [fitz.Rect(i["bbox"]) for i in img_info]
 
         vg_clusters = dict((i, r) for i, r in enumerate(vg_clusters0))
         # Determine text column bboxes on page, avoiding tables and graphics
+        print(f"{len(tab_rects0)=}, {len(vg_clusters0)=}")
         text_rects = column_boxes(
             page,
-            paths=paths,
+            paths=actual_paths,
+            no_image_text=write_images,
             textpage=textpage,
             avoid=tab_rects0 + vg_clusters0,
         )
@@ -444,28 +523,46 @@ def to_markdown(
                 tab_rects=tab_rects,
                 img_rects=vg_clusters,
                 links=links,
-                hdr_info=hdr_info,
             )
 
-        # write remaining tables.
+        # write any remaining tables and images
         md_string += output_tables(tabs, None, tab_rects)
         md_string += output_images(None, tab_rects, None)
         md_string += "\n-----\n\n"
-        return md_string
+        while md_string.startswith("\n"):
+            md_string = md_string[1:]
+        return md_string, images, tables, graphics
 
     if page_chunks is False:
         document_output = ""
     else:
         document_output = []
 
+    # read the Table of Contents
+    toc = doc.get_toc()
     textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
-    for pno in list(pages):
-        page_output = get_page_output(doc, pno, textflags)
+    for pno in pages:
+
+        page_output, images, tables, graphics = get_page_output(
+            doc, pno, margins, textflags
+        )
         if page_chunks is False:
             document_output += page_output
         else:
+            # build subet of TOC for this page
+            page_tocs = [t for t in toc if t[-1] == pno + 1]
+
             metadata = get_metadata(doc, pno)
-            document_output.append({"metadata": metadata, "text": page_output})
+            document_output.append(
+                {
+                    "metadata": metadata,
+                    "toc_items": page_tocs,
+                    "tables": tables,
+                    "images": images,
+                    "graphics": graphics,
+                    "text": page_output,
+                }
+            )
 
     return document_output
 
