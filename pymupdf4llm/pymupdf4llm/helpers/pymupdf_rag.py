@@ -71,7 +71,7 @@ def compute_header_footer_coordinates(page):
         header_coordinates = (0, 0, page_width, header_text["bbox"][3])
         footer_coordinates = (0, footer_text["bbox"][1], page_width, page_height)
     else:
-        return [0, 0, page_width, 0], [0, page_height, page_width, page_height]
+        return [0, 0, 0, 0], [0, 0, 0, 0]
         
     return header_coordinates, footer_coordinates
 
