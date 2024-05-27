@@ -115,13 +115,13 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: fitz.Document | str,
+    doc: "fitz.Document | str",
     *,
-    pages: list | range | None = None,
-    hdr_info: IdentifyHeaders | None = None,
+    pages: "list | range | None" = None,
+    hdr_info: "IdentifyHeaders | None" = None,
     write_images: bool = False,
     page_chunks: bool = False,
-) -> str | list[dict]:
+) -> "str | list[dict]":
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
@@ -163,9 +163,9 @@ def to_markdown(
         textpage: fitz.TextPage,
         clip: fitz.Rect,
         tabs=None,
-        tab_rects: dict | None = None,
-        img_rects: dict | None = None,
-        links: list | None = None,
+        tab_rects: "dict | None" = None,
+        img_rects: "dict | None" = None,
+        links: "list | None" = None,
         hdr_info=None,
     ) -> string:
         """Output the text found inside the given clip.
