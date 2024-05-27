@@ -1,3 +1,16 @@
+.. |PyMuPDF| raw:: html
+
+    <cite>PyMuPDF</cite>
+
+.. |PDF| raw:: html
+
+    <cite>PDF</cite>
+
+.. |Markdown| raw:: html
+
+    <cite>Markdown</cite>
+
+
 .. raw:: html
 
     <style>
