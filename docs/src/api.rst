@@ -10,11 +10,11 @@ API
 
     Prints the version of the library.
 
-.. method:: to_markdown(doc: fitz.Document | str, *, pages: list | range | None = None, hdr_info: Any = None, write_images: bool = False, margins=(0, 50, 0, 50), page_chunks: bool = False) -> str | list[dict]
+.. method:: to_markdown(doc: pymupdf.Document | str, *, pages: list | range | None = None, hdr_info: Any = None, write_images: bool = False, margins=(0, 50, 0, 50), page_chunks: bool = False) -> str | list[dict]
 
     Read the pages of the file and outputs the text of its pages in Markdown format. How this should happen in detail can be influenced by a number of parameters. Please note that there exists support for building page chunks from the Markdown text.
 
-    :arg Document,str doc: the file, to be specified either as a file path string, or as a PyMuPDF Document (created via pymupdf.open).
+    :arg Document,str doc: the file, to be specified either as a file path string, or as a PyMuPDF Document (created via `pymupdf.open`).
 
     :arg list,range pages: optional, the pages to consider for output. If omitted all pages are processed.
 
@@ -26,11 +26,11 @@ API
     
     :arg bool page_chunks: if `True` the output will be a list of `Document.page_count` dictionaries (one per page). Each dictionary has the following structure:
 
-        - **"metadata"** - a dictionary consisting of the document's metadata `Document.metadata <https://pymupdf.readthedocs.io/en/latest/document.html#Document.metadata>'_, enriched with additional keys **"file_path"** (the file name), **"page_count"** (number of pages in document), and **"page_number"** (1-based page number).
+        - **"metadata"** - a dictionary consisting of the document's metadata `Document.metadata <https://pymupdf.readthedocs.io/en/latest/document.html#Document.metadata>`_, enriched with additional keys **"file_path"** (the file name), **"page_count"** (number of pages in document), and **"page_number"** (1-based page number).
 
-        - **"toc_items"** - a list of Table of Contents items pointing to this page. Ech item of this list has the format `[lvl, title, pagenumber]`, where "lvl" is the hierachie level, "title" a string and "pagenumber" the 12-based page number.
+        - **"toc_items"** - a list of Table of Contents items pointing to this page. Each item of this list has the format `[lvl, title, pagenumber]`, where "lvl" is the hierachy level, "title" a string and "pagenumber" the 12-based page number.
 
-        - **"tables"** - a list of tables on this page. Each item is a dictionary with keys "bbox", "row_count" and "col_count". Key "bbox" is a fitz.Rect in tuple format of the table's position on the page.
+        - **"tables"** - a list of tables on this page. Each item is a dictionary with keys "bbox", "row_count" and "col_count". Key "bbox" is a `pymupdf.Rect` in tuple format of the table's position on the page.
 
         - **"images"** - a list of images on the page. This a copy of page method `get_image_info <https://pymupdf.readthedocs.io/en/latest/page.html#Page.get_image_info>`_. Please see there for a full description of items.
 
@@ -42,9 +42,9 @@ API
 
 .. method:: LlamaMarkdownReader(*args, **kwargs)
 
-    Create a `pdf_markdown_reader.PDFMarkdownReader` using the `LlamaIndex <https://pypi.org/project/llama-index/>`_ package. Please note that this package will **not automatically be installed** when installing pymupdf4llm.
+    Create a `pdf_markdown_reader.PDFMarkdownReader` using the `LlamaIndex <https://pypi.org/project/llama-index/>`_ package. Please note that this package will **not automatically be installed** when installing **pymupdf4llm**.
 
-    For details on the possible arguments, please consult LlamaIndex documentation.
+    For details on the possible arguments, please consult the LlamaIndex documentation [#f1]_.
 
     :raises: NotImplementedError: Please install required 'llama_index'.
     :returns: a `pdf_markdown_reader.PDFMarkdownReader` and issues message "Successfully imported LlamaIndex". Please note that this method needs several seconds to execute. For details on using the markdown reader please see below.
@@ -56,11 +56,16 @@ API
    
     .. method:: load_data(file_path: Union[Path, str], extra_info: Optional[Dict] = None, **load_kwargs: Any) -> List[LlamaIndexDocument]
 
-        This is the only method of the markdown reader you should currently use to extract markdown data. Please in any case ignore methods `aload_data()` and `lazy_load_data()`. Other methods like `use_doc_meta()` may or may not make sense. For more information, please consult the documentation of LlamaIndex.
+        This is the only method of the markdown reader you should currently use to extract markdown data. Please in any case ignore methods `aload_data()` and `lazy_load_data()`. Other methods like `use_doc_meta()` may or may not make sense. For more information, please consult the documentation of LlamaIndex [#f1]_.
 
         Under the hood the method will execute `to_markdown()`.
 
         :returns: a list of `LlamaIndexDocument` documents - one for each page.
+
+
+.. rubric:: Footnotes
+
+.. [#f1] `LlamaIndex documentation <https://docs.llamaindex.ai/en/stable/>`_
 
 
 .. include:: footer.rst
