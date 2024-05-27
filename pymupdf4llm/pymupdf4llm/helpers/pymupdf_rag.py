@@ -130,7 +130,7 @@ def to_markdown(
     hdr_info=None,
     write_images: bool = False,
     page_chunks: bool = False,
-    margins: typing.Iterable = (0, 50, 0, 50),
+    margins=(0, 50, 0, 50),
 ) -> str:
     """Process the document and return the text of its selected pages."""
 
