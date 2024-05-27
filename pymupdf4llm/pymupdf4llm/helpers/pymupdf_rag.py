@@ -28,7 +28,6 @@ License GNU Affero GPL 3.0
 
 import os
 import string
-import typing
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -50,8 +49,8 @@ class IdentifyHeaders:
 
     def __init__(
         self,
-        doc: fitz.Document | str,
-        pages: list | range | None = None,
+        doc: str,
+        pages: list = None,
         body_limit: float = 12,
     ):
         """Read all text and make a dictionary of fontsizes.
@@ -113,7 +112,7 @@ class IdentifyHeaders:
         for i, size in enumerate(sizes):
             self.header_id[size] = "#" * (i + 1) + " "
 
-    def get_header_id(self, span: dict, **kwargs) -> str:
+    def get_header_id(self, span: dict, page=None) -> str:
         """Return appropriate markdown header prefix.
 
         Given a text span from a "dict"/"rawdict" extraction, determine the
@@ -125,14 +124,14 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: fitz.Document | str,
+    doc: str,
     *,
-    pages: list | range | None = None,
-    hdr_info: typing.Any = None,
+    pages: list = None,
+    hdr_info=None,
     write_images: bool = False,
     page_chunks: bool = False,
-    margins: float | typing.Iterable = (0, 50, 0, 50),
-) -> str | list[dict]:
+    margins: typing.Iterable = (0, 50, 0, 50),
+) -> str:
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
@@ -188,9 +187,9 @@ def to_markdown(
         textpage: fitz.TextPage,
         clip: fitz.Rect,
         tabs=None,
-        tab_rects: dict | None = None,
-        img_rects: dict | None = None,
-        links: list | None = None,
+        tab_rects: dict = None,
+        img_rects: dict = None,
+        links: list = None,
     ) -> string:
         """Output the text found inside the given clip.
 
@@ -289,7 +288,7 @@ def to_markdown(
             prev_lrect = lrect
 
             # if line is a header, this will return multiple "#" characters
-            hdr_string = get_header_id(span0)
+            hdr_string = get_header_id(span0, page=page)
 
             # intercept if header text has been broken in multiple lines
             if hdr_string and hdr_string == prev_hdr_string:
@@ -297,7 +296,7 @@ def to_markdown(
                 continue
 
             prev_hdr_string = hdr_string
-            if hdr_string.startswith("#"):  # if a header output and skip the rest
+            if hdr_string.startswith("#"):  # if a header line skip the rest
                 out_string += hdr_string + text + "\n"
                 continue
 
@@ -421,29 +420,28 @@ def to_markdown(
             doc: fitz.Document
             pno: 0-based page number
             textflags: text extraction flag bits
-            images: store image information here
-            tables: store table information here
-            graphics: store graphics information here
 
         Returns:
-            Markdown string of page content.
+            Markdown string of page content and image, table and vector
+            graphics information.
         """
         page = doc[pno]
         md_string = ""
-
+        left, top, right, bottom = margins
+        clip = page.rect + (left, top, -right, -bottom)
         # extract all links on page
         links = [l for l in page.get_links() if l["kind"] == 2]
 
         # make a TextPage for all later extractions
-        textpage = page.get_textpage(flags=textflags)
+        textpage = page.get_textpage(flags=textflags, clip=clip)
 
-        img_info = page.get_image_info()
+        img_info = [img for img in page.get_image_info() if img["bbox"] in clip]
         images = img_info[:]
         tables = []
         graphics = []
 
         # Locate all tables on page
-        tabs = page.find_tables(strategy="lines_strict")
+        tabs = page.find_tables(clip=clip, strategy="lines_strict")
 
         # Make a list of table boundary boxes.
         # Must include the header bbox (may exist outside tab.bbox)
@@ -485,7 +483,7 @@ def to_markdown(
                     vg_clusters.append(bbox)
 
         actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
-        print(f"before: {len(vg_clusters)=}")
+
         vg_clusters0 = [
             r
             for r in vg_clusters
@@ -496,8 +494,8 @@ def to_markdown(
             vg_clusters0 += [fitz.Rect(i["bbox"]) for i in img_info]
 
         vg_clusters = dict((i, r) for i, r in enumerate(vg_clusters0))
+
         # Determine text column bboxes on page, avoiding tables and graphics
-        print(f"{len(tab_rects0)=}, {len(vg_clusters0)=}")
         text_rects = column_boxes(
             page,
             paths=actual_paths,
