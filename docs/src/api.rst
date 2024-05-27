@@ -12,9 +12,9 @@ API
 
 .. method:: to_markdown(doc: pymupdf.Document | str, *, pages: list | range | None = None, hdr_info: Any = None, write_images: bool = False, margins=(0, 50, 0, 50), page_chunks: bool = False) -> str | list[dict]
 
-    Read the pages of the file and outputs the text of its pages in Markdown format. How this should happen in detail can be influenced by a number of parameters. Please note that there exists support for building page chunks from the Markdown text.
+    Read the pages of the file and outputs the text of its pages in |Markdown| format. How this should happen in detail can be influenced by a number of parameters. Please note that there exists support for building page chunks from the |Markdown|  text.
 
-    :arg Document,str doc: the file, to be specified either as a file path string, or as a PyMuPDF Document (created via `pymupdf.open`).
+    :arg Document,str doc: the file, to be specified either as a file path string, or as a |PyMuPDF| Document (created via `pymupdf.open`).
 
     :arg list,range pages: optional, the pages to consider for output. If omitted all pages are processed.
 
@@ -28,7 +28,7 @@ API
 
         - **"metadata"** - a dictionary consisting of the document's metadata `Document.metadata <https://pymupdf.readthedocs.io/en/latest/document.html#Document.metadata>`_, enriched with additional keys **"file_path"** (the file name), **"page_count"** (number of pages in document), and **"page_number"** (1-based page number).
 
-        - **"toc_items"** - a list of Table of Contents items pointing to this page. Each item of this list has the format `[lvl, title, pagenumber]`, where "lvl" is the hierachy level, "title" a string and "pagenumber" the 12-based page number.
+        - **"toc_items"** - a list of Table of Contents items pointing to this page. Each item of this list has the format `[lvl, title, pagenumber]`, where `lvl` is the hierachy level, `title` a string and `pagenumber` the 12-based page number.
 
         - **"tables"** - a list of tables on this page. Each item is a dictionary with keys "bbox", "row_count" and "col_count". Key "bbox" is a `pymupdf.Rect` in tuple format of the table's position on the page.
 

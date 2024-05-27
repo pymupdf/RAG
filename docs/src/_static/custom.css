@@ -2,3 +2,8 @@
 .footer-item .theme-version {
     display: none;
 }
+
+cite {
+    font-weight: bold;
+    font-style: normal;
+}
