@@ -130,7 +130,8 @@ def to_markdown(
     hdr_info=None,
     write_images: bool = False,
     page_chunks: bool = False,
-    margins=(0, 50, 0, 50),
+    margins = (0, 50, 0, 50),
+    dpi: int = None,
 ) -> str:
     """Process the document and return the text of its selected pages."""
 
@@ -171,12 +172,12 @@ def to_markdown(
             text = f'[{span["text"].strip()}]({link["uri"]})'
             return text
 
-    def save_image(page, rect, i):
+    def save_image(page, rect, i, dpi):
         """Optionally render the rect part of a page."""
         filename = page.parent.name.replace("\\", "/")
         image_path = f"{filename}-{page.number}-{i}.png"
         if write_images is True:
-            pix = page.get_pixmap(clip=rect)
+            pix = page.get_pixmap(clip=rect, dpi = dpi)
             pix.save(image_path)
             del pix
             return os.path.basename(image_path)
@@ -190,6 +191,7 @@ def to_markdown(
         tab_rects: dict = None,
         img_rects: dict = None,
         links: list = None,
+        dpi: int = None
     ) -> string:
         """Output the text found inside the given clip.
 
@@ -249,7 +251,7 @@ def to_markdown(
                 ],
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
-                pathname = save_image(page, img_rect, i)
+                pathname = save_image(page, img_rect, i, dpi = dpi)
                 if pathname:
                     out_string += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]
@@ -380,7 +382,7 @@ def to_markdown(
                 del tab_rects[i]  # do not touch this table twice
         return this_md
 
-    def output_images(page, text_rect, img_rects):
+    def output_images(page, text_rect, img_rects, dpi):
         """Output images and graphics above text rectangle."""
         if img_rects is None:
             return ""
@@ -390,7 +392,7 @@ def to_markdown(
                 [j for j in img_rects.items() if j[1].y1 <= text_rect.y0],
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
-                pathname = save_image(page, img_rect, i)
+                pathname = save_image(page, img_rect, i, dpi = dpi)
                 if pathname:
                     this_md += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]  # do not touch this image twice
@@ -400,7 +402,7 @@ def to_markdown(
                 img_rects.items(),
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
-                pathname = save_image(page, img_rect, i)
+                pathname = save_image(page, img_rect, i, dpi = dpi)
                 if pathname:
                     this_md += GRAPHICS_TEXT % (pathname, pathname)
                 del img_rects[i]  # do not touch this image twice
@@ -413,7 +415,7 @@ def to_markdown(
         meta["page"] = pno + 1
         return meta
 
-    def get_page_output(doc, pno, margins, textflags):
+    def get_page_output(doc, pno, margins, textflags, dpi):
         """Process one page.
 
         Args:
@@ -510,7 +512,7 @@ def to_markdown(
         for text_rect in text_rects:
             # output tables above this block of text
             md_string += output_tables(tabs, text_rect, tab_rects)
-            md_string += output_images(page, text_rect, vg_clusters)
+            md_string += output_images(page, text_rect, vg_clusters, dpi = dpi)
 
             # output text inside this rectangle
             md_string += write_text(
@@ -521,11 +523,12 @@ def to_markdown(
                 tab_rects=tab_rects,
                 img_rects=vg_clusters,
                 links=links,
+                dpi = dpi
             )
 
         # write any remaining tables and images
         md_string += output_tables(tabs, None, tab_rects)
-        md_string += output_images(None, tab_rects, None)
+        md_string += output_images(page, None, vg_clusters,  dpi = dpi)
         md_string += "\n-----\n\n"
         while md_string.startswith("\n"):
             md_string = md_string[1:]
@@ -542,7 +545,7 @@ def to_markdown(
     for pno in pages:
 
         page_output, images, tables, graphics = get_page_output(
-            doc, pno, margins, textflags
+            doc, pno, margins, textflags, dpi = dpi
         )
         if page_chunks is False:
             document_output += page_output
