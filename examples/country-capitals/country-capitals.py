@@ -17,7 +17,7 @@ The chatbot is capable of integrating disparate information sources delivering
 a meaningful response.
 """
 
-import fitz
+import pymupdf
 import textwrap
 from openai import OpenAI
 
@@ -47,7 +47,7 @@ def extract_text_from_pdf(pdf_path):
       header repeat situations.
     """
     # open document
-    doc = fitz.open(pdf_path)
+    doc = pymupdf.open(pdf_path)
 
     text = ""  # we will return this string
     row_count = 0  # counts table rows
