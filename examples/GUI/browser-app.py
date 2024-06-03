@@ -1,5 +1,12 @@
 """
-Based on an implementation by Sunil Kumar Dash:
+This code uses the PyMuPDF package.
+
+PyMuPDF is AGPL licensed, please refer to:
+https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright
+"""
+
+"""
+Code below is based on an implementation by Sunil Kumar Dash:
 
 MIT License
 
