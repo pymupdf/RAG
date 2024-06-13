@@ -28,6 +28,7 @@ License GNU Affero GPL 3.0
 
 import os
 import string
+from pathlib import Path
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -124,7 +125,7 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: str,
+    doc: str | Path,
     *,
     pages: list = None,
     hdr_info=None,
@@ -134,7 +135,7 @@ def to_markdown(
 ) -> str:
     """Process the document and return the text of its selected pages."""
 
-    if isinstance(doc, str):
+    if isinstance(doc, (str, Path)):
         doc = fitz.open(doc)
 
     if pages is None:  # use all pages if no selection given
