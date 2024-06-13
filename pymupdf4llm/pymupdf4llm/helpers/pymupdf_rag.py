@@ -29,7 +29,7 @@ License GNU Affero GPL 3.0
 import os
 import string
 from pathlib import Path
-from typing import overload, Literal
+from typing import overload, Literal, TypedDict
 
 try:
     import pymupdf as fitz  # available with v1.24.3
