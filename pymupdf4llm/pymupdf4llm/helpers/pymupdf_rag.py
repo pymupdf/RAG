@@ -29,6 +29,7 @@ License GNU Affero GPL 3.0
 import os
 import string
 from pathlib import Path
+from typing import Callable
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -50,7 +51,7 @@ class IdentifyHeaders:
 
     def __init__(
         self,
-        doc: str,
+        doc: fitz.Document,
         pages: list = None,
         body_limit: float = 12,
     ):
@@ -60,17 +61,13 @@ class IdentifyHeaders:
             pages: optional list of pages to consider
             body_limit: consider text with larger font size as some header
         """
-        if isinstance(doc, fitz.Document):
-            mydoc = doc
-        else:
-            mydoc = fitz.open(doc)
 
         if pages is None:  # use all pages if omitted
-            pages = range(mydoc.page_count)
+            pages = range(doc.page_count)
 
         fontsizes = {}
         for pno in pages:
-            page = mydoc.load_page(pno)
+            page = doc.load_page(pno)
             blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
             for span in [  # look at all non-empty horizontal spans
                 s
@@ -82,10 +79,6 @@ class IdentifyHeaders:
                 fontsz = round(span["size"])
                 count = fontsizes.get(fontsz, 0) + len(span["text"].strip())
                 fontsizes[fontsz] = count
-
-        if mydoc != doc:
-            # if opened here, close it now
-            mydoc.close()
 
         # maps a fontsize to a string of multiple # header tag characters
         self.header_id = {}
@@ -124,20 +117,41 @@ class IdentifyHeaders:
         return hdr_id
 
 
+ImageFilterer = Callable[[fitz.Pixmap], bool] | None
+
+
 def to_markdown(
     doc: str | Path | fitz.Document,
     *,
     pages: list = None,
     hdr_info=None,
-    write_images: bool = False,
+    write_images: ImageFilterer | bool = False,
     page_chunks: bool = False,
     margins=(0, 50, 0, 50),
-) -> str:
-    """Process the document and return the text of its selected pages."""
+) -> str | list[dict]:
+    """Process the document and return the text of its selected pages.
+
+    Args:
+        doc: a PDF filename, a Path object or a fitz.Document object.
+        pages: list of page numbers to consider (0-based).
+        hdr_info: a callable object to identify headers.
+        write_images: if True'ble value, images are saved as files. Also accepts
+          a callable to filter images: return falseble value to skip.
+        page_chunks: if True, return a list of page dictionaries.
+        margins: a tuple of 2 or 4 numbers, or a single number. Used for
+          clipping the page content.
+
+    Notes:
+        Usages with image filtering pipeline:
+        >>> def filter_images(pix: fitz.Pixmap) -> bool:
+        >>>     return pix.h > 10 and pix.w > 10
+        >>> to_markdown("input.pdf", write_images=filter_images)
+        That will save only images with both dimensions larger than 10 pixels.
+    """
 
     if not isinstance(doc, fitz.Document):
         doc = fitz.open(doc)
-    doc: fitz.Document # type narrowing
+    doc: fitz.Document  # type narrowing
 
     if pages is None:  # use all pages if no selection given
         pages = list(range(doc.page_count))
@@ -175,14 +189,18 @@ def to_markdown(
 
     def save_image(page, rect, i):
         """Optionally render the rect part of a page."""
+        if not write_images:
+            return None
+
         filename = page.parent.name.replace("\\", "/")
         image_path = f"{filename}-{page.number}-{i}.png"
-        if write_images is True:
-            pix = page.get_pixmap(clip=rect)
-            pix.save(image_path)
+        pix: fitz.Pixmap = page.get_pixmap(clip=rect)
+        if callable(write_images) and not write_images(pix):
             del pix
-            return os.path.basename(image_path)
-        return ""
+            return None
+        pix.save(image_path)
+        del pix
+        return os.path.basename(image_path)
 
     def write_text(
         page: fitz.Page,
@@ -492,7 +510,7 @@ def to_markdown(
             if not intersects_rects(r, tab_rects0) and r.height > 20
         ]
 
-        if write_images is True:
+        if write_images:
             vg_clusters0 += [fitz.Rect(i["bbox"]) for i in img_info]
 
         vg_clusters = dict((i, r) for i, r in enumerate(vg_clusters0))
@@ -542,7 +560,6 @@ def to_markdown(
     toc = doc.get_toc()
     textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
     for pno in pages:
-
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
         )
@@ -607,4 +624,4 @@ if __name__ == "__main__":
     outname = doc.name.replace(".pdf", ".md")
     pathlib.Path(outname).write_bytes(md_string.encode())
     t1 = time.perf_counter()  # stop timer
-    print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
+    print(f"Markdown creation time for {doc.name=} {round(t1 - t0, 2)} sec.")
