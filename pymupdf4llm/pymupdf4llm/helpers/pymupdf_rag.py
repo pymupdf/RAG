@@ -479,8 +479,8 @@ def to_markdown(
                 if [item[0] for item in p["items"] if item[0] == "c"]:
                     include = True
                     break
-                if include is True:
-                    vg_clusters.append(bbox)
+            if include is True:
+                vg_clusters.append(bbox)
 
         actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
 
@@ -525,7 +525,7 @@ def to_markdown(
 
         # write any remaining tables and images
         md_string += output_tables(tabs, None, tab_rects)
-        md_string += output_images(None, tab_rects, None)
+        md_string += output_images(page, None, vg_clusters)
         md_string += "\n-----\n\n"
         while md_string.startswith("\n"):
             md_string = md_string[1:]
