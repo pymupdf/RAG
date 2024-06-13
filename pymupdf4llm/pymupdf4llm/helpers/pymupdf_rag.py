@@ -117,7 +117,7 @@ class IdentifyHeaders:
         return hdr_id
 
 
-ImageFilterer = Callable[[fitz.Pixmap], bool] | None
+ImageFilterer = Callable[[fitz.Pixmap], bool]
 
 
 def to_markdown(
