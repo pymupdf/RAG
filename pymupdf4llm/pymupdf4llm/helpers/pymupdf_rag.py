@@ -28,6 +28,8 @@ License GNU Affero GPL 3.0
 
 import os
 import string
+from pathlib import Path
+from typing import overload, Literal
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -122,6 +124,37 @@ class IdentifyHeaders:
         hdr_id = self.header_id.get(fontsize, "")
         return hdr_id
 
+@overload
+def to_markdown(
+    doc: str,
+    *,
+    pages: list = None,
+    hdr_info=None,
+    write_images: bool = False,
+    page_chunks: Literal[False] = False,
+    margins=(0, 50, 0, 50),
+) -> str:
+    pass
+
+class Page(TypedDict):
+    graphics: list
+    images: list
+    metadata: dict
+    tables: list
+    text: str
+    toc_items: list
+
+@overload
+def to_markdown(
+    doc: str,
+    *,
+    pages: list = None,
+    hdr_info=None,
+    write_images: bool = False,
+    page_chunks: Literal[True] = True,
+    margins=(0, 50, 0, 50),
+) -> list[dict]:
+    pass
 
 def to_markdown(
     doc: str,
@@ -131,7 +164,7 @@ def to_markdown(
     write_images: bool = False,
     page_chunks: bool = False,
     margins=(0, 50, 0, 50),
-) -> str:
+) -> str | list[Page]:
     """Process the document and return the text of its selected pages."""
 
     if isinstance(doc, str):
