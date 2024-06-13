@@ -125,7 +125,7 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: str | Path,
+    doc: str | Path | fitz.Document,
     *,
     pages: list = None,
     hdr_info=None,
@@ -135,8 +135,9 @@ def to_markdown(
 ) -> str:
     """Process the document and return the text of its selected pages."""
 
-    if isinstance(doc, (str, Path)):
+    if not isinstance(doc, fitz.Document):
         doc = fitz.open(doc)
+    doc: fitz.Document # type narrowing
 
     if pages is None:  # use all pages if no selection given
         pages = list(range(doc.page_count))
