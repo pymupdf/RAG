@@ -1,14 +1,8 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-try:
-    import pymupdf as fitz  # available with v1.24.3
-except ImportError:
-    import fitz
-
-from fitz import Document as FitzDocument
-
-from pymupdf4llm import IdentifyHeaders, to_markdown
+from .. import to_markdown
+from .._pymupdf import pymupdf
 
 try:
     from llama_index.core.readers.base import BaseReader
@@ -56,17 +50,11 @@ class PDFMarkdownReader(BaseReader):
             raise TypeError("extra_info must be a dictionary.")
 
         # extract text header information
-        hdr_info = IdentifyHeaders(file_path)
-
-        doc: FitzDocument = fitz.open(file_path)
+        doc: pymupdf.Document = pymupdf.open(file_path)
         docs = []
 
         for page in doc:
-            docs.append(
-                self._process_doc_page(
-                    doc, extra_info, file_path, page.number, hdr_info
-                )
-            )
+            docs.append(self._process_doc_page(doc, extra_info, file_path, page.number))
         return docs
 
     # Helpers
@@ -74,11 +62,10 @@ class PDFMarkdownReader(BaseReader):
 
     def _process_doc_page(
         self,
-        doc: FitzDocument,
+        doc: pymupdf.Document,
         extra_info: Dict[str, Any],
-        file_path: str,
+        file_path: Union[Path, str],
         page_number: int,
-        hdr_info: IdentifyHeaders,
     ):
         """Processes a single page of a PDF document."""
         extra_info = self._process_doc_meta(doc, file_path, page_number, extra_info)
@@ -86,14 +73,13 @@ class PDFMarkdownReader(BaseReader):
         if self.meta_filter:
             extra_info = self.meta_filter(extra_info)
 
-        text = to_markdown(
-            doc, pages=[page_number], hdr_info=hdr_info, write_images=False
-        )
+        output = to_markdown(doc, pages=[page_number])
+        text = "\n\n-----\n\n".join([chunk["text"] for chunk in output["page_chunks"]])
         return LlamaIndexDocument(text=text, extra_info=extra_info)
 
     def _process_doc_meta(
         self,
-        doc: FitzDocument,
+        doc: pymupdf.Document,
         file_path: Union[Path, str],
         page_number: int,
         extra_info: Optional[Dict] = None,

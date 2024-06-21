@@ -43,7 +43,7 @@ Usage
   # for each page execute
   bboxes = column_boxes(page, footer_margin=50, no_image_text=True)
 
-  bboxes is a list of fitz.IRect objects, that are sorted ascending by their
+  bboxes is a list of pymupdf.Rect objects, that are sorted ascending by their
   y0, then x0 coordinates. Their text content can be extracted by all PyMuPDF
   get_text() variants, like for instance the following:
   for rect in bboxes:
@@ -60,12 +60,62 @@ Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
 
-import string
+from .rectangle_utils import is_in_rects, any_rect_between_over_y, intersects_rects
+from .._pymupdf import pymupdf
 
-try:
-    import pymupdf as fitz
-except ImportError:
-    import fitz
+
+def can_extend(temp, bb, bboxlist, vert_bboxes):
+    """Determines whether rectangle 'temp' can be extended by 'bb'
+    without intersecting any of the rectangles contained in 'bboxlist'.
+
+    Items of bboxlist may be None if they have been removed.
+
+    Returns:
+        True if 'temp' has no intersections with items of 'bboxlist'.
+    """
+    for b in bboxlist:
+        if not intersects_rects(temp, vert_bboxes) and (
+            b is None or b == bb or (temp & b).is_empty
+        ):
+            continue
+        return False
+
+    return True
+
+
+def extend_right(bboxes, width, vert_bboxes, graphics_bboxes):
+    """Extend a bbox to the right page border.
+
+    Whenever there is no text to the right of a bbox, enlarge it up
+    to the right page border.
+
+    Args:
+        bboxes: (list[IRect]) bboxes to check
+        width: (int) page width
+        vert_bboxes: (list[IRect]) bboxes with vertical text
+        graphics_bboxes: (list[IRect]) bboxes of images or graphics
+    Returns:
+        Potentially modified bboxes.
+    """
+    for i, bb in enumerate(bboxes):
+        # do not extend text in images
+        if is_in_rects(bb, graphics_bboxes):
+            continue
+
+        # temp extends bb to the right page border
+        temp = +bb
+        temp.x1 = width
+
+        # do not cut through colored background or images
+        if intersects_rects(temp, vert_bboxes + graphics_bboxes):
+            continue
+
+        # also, do not intersect other text bboxes
+        check = can_extend(temp, bb, bboxes, vert_bboxes)
+        if check:
+            bboxes[i] = temp  # replace with enlarged bbox
+
+    return [b for b in bboxes if b]
 
 
 def column_boxes(
@@ -73,122 +123,29 @@ def column_boxes(
     *,
     footer_margin=50,
     header_margin=50,
-    no_image_text=True,
     textpage=None,
-    paths=None,
-    avoid=None,
+    graphic_rects=None,
 ):
     """Determine bboxes which wrap a column on the page.
 
     Args:
         footer_margin: ignore text if distance from bottom is less
         header_margin: ignore text if distance from top is less
-        no_image_text: ignore text inside image bboxes
         textpage: use this textpage instead of creating one
-        paths: use these drawings instead of extracting here
-        avoid: ignore text in any of these areas
+        graphic_rects: ignore text in any of these areas
     """
-    WHITE = set(string.whitespace)
-
-    def is_white(text):
-        """Check for relevant text."""
-        return WHITE.issuperset(text)
 
     # compute relevant page area
     clip = +page.rect
     clip.y1 -= footer_margin  # Remove footer area
     clip.y0 += header_margin  # Remove header area
 
-    if paths is None:
-        paths = page.get_drawings()
-
     if textpage is None:
-        textpage = page.get_textpage(clip=clip, flags=fitz.TEXTFLAGS_TEXT)
-
-    bboxes = []
-
-    # path rectangles
-    path_rects = []
-
-    # image bboxes
-    img_bboxes = []
-    if avoid is not None:
-        img_bboxes.extend(avoid)
+        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
 
     # bboxes of non-horizontal text
     # avoid when expanding horizontal text boxes
     vert_bboxes = []
-
-    def can_extend(temp, bb, bboxlist):
-        """Determines whether rectangle 'temp' can be extended by 'bb'
-        without intersecting any of the rectangles contained in 'bboxlist'.
-
-        Items of bboxlist may be None if they have been removed.
-
-        Returns:
-            True if 'temp' has no intersections with items of 'bboxlist'.
-        """
-        for b in bboxlist:
-            if not intersects_bboxes(temp, vert_bboxes) and (
-                b == None or b == bb or (temp & b).is_empty
-            ):
-                continue
-            return False
-
-        return True
-
-    def in_bbox(bb, bboxes):
-        """Return 1-based number if a bbox contains bb, else return 0."""
-        for i, bbox in enumerate(bboxes):
-            if bb in bbox:
-                return i + 1
-        return 0
-
-    def intersects_bboxes(bb, bboxes):
-        """Return True if a bbox intersects bb, else return False."""
-        for bbox in bboxes:
-            if not (bb & bbox).is_empty:
-                return True
-        return False
-
-    def extend_right(bboxes, width, path_bboxes, vert_bboxes, img_bboxes):
-        """Extend a bbox to the right page border.
-
-        Whenever there is no text to the right of a bbox, enlarge it up
-        to the right page border.
-
-        Args:
-            bboxes: (list[IRect]) bboxes to check
-            width: (int) page width
-            path_bboxes: (list[IRect]) bboxes with a background color
-            vert_bboxes: (list[IRect]) bboxes with vertical text
-            img_bboxes: (list[IRect]) bboxes of images
-        Returns:
-            Potentially modified bboxes.
-        """
-        for i, bb in enumerate(bboxes):
-            # do not extend text with background color
-            if in_bbox(bb, path_bboxes):
-                continue
-
-            # do not extend text in images
-            if in_bbox(bb, img_bboxes):
-                continue
-
-            # temp extends bb to the right page border
-            temp = +bb
-            temp.x1 = width
-
-            # do not cut through colored background or images
-            if intersects_bboxes(temp, path_bboxes + vert_bboxes + img_bboxes):
-                continue
-
-            # also, do not intersect other text bboxes
-            check = can_extend(temp, bb, bboxes)
-            if check:
-                bboxes[i] = temp  # replace with enlarged bbox
-
-        return [b for b in bboxes if b != None]
 
     def clean_nblocks(nblocks):
         """Do some elementary cleaning."""
@@ -227,57 +184,41 @@ def column_boxes(
             nblocks[i0 : i1 + 1] = sorted(nblocks[i0 : i1 + 1], key=lambda b: b.x0)
         return nblocks
 
-    # extract vector graphics
-    for p in paths:
-        path_rects.append(p["rect"].irect)
-    path_bboxes = path_rects
-
-    # sort path bboxes by ascending top, then left coordinates
-    path_bboxes.sort(key=lambda b: (b.y0, b.x0))
-
-    # bboxes of images on page, no need to sort them
-    for item in page.get_images():
-        img_bboxes.extend(page.get_image_rects(item[0]))
-
     # blocks of text on page
-    blocks = textpage.extractDICT()["blocks"]
+    text_blocks = textpage.extractDICT()["blocks"]
+    text_blocks = list(
+        filter(lambda b: not is_in_rects(b["bbox"], graphic_rects), text_blocks)
+    )
+    bboxes = []
 
     # Make block rectangles, ignoring non-horizontal text
-    for b in blocks:
-        bbox = fitz.IRect(b["bbox"])  # bbox of the block
-
-        # ignore text written upon images
-        if no_image_text and in_bbox(bbox, img_bboxes):
-            continue
-
+    for b in text_blocks:
+        bbox = b["bbox"]
         # confirm first line to be horizontal
         line0 = b["lines"][0]  # get first line
         if line0["dir"] != (1, 0):  # only accept horizontal text
             vert_bboxes.append(bbox)
             continue
 
-        srect = fitz.EMPTY_IRECT()
+        srect = pymupdf.EMPTY_RECT()
         for line in b["lines"]:
-            lbbox = fitz.IRect(line["bbox"])
             text = "".join([s["text"].strip() for s in line["spans"]])
-            if len(text) > 1:
+            if text:
+                lbbox = pymupdf.Rect(line["bbox"])
                 srect |= lbbox
         bbox = +srect
 
         if not bbox.is_empty:
             bboxes.append(bbox)
 
-    # Sort text bboxes by ascending background, top, then left coordinates
-    bboxes.sort(key=lambda k: (in_bbox(k, path_bboxes), k.y0, k.x0))
-
-    # Extend bboxes to the right where possible
-    bboxes = extend_right(
-        bboxes, int(page.rect.width), path_bboxes, vert_bboxes, img_bboxes
-    )
-
     # immediately return of no text found
-    if bboxes == []:
+    if not bboxes:
         return []
+
+    # Sort text bboxes by ascending background, top, then left coordinates
+    bboxes.sort(key=lambda k: (k.y0, k.x0))
+    # Extend bboxes to the right where possible
+    bboxes = extend_right(bboxes, int(page.rect.width), vert_bboxes, graphic_rects)
 
     # --------------------------------------------------------------------
     # Join bboxes to establish some column structure
@@ -286,24 +227,30 @@ def column_boxes(
     nblocks = [bboxes[0]]  # pre-fill with first bbox
     bboxes = bboxes[1:]  # remaining old bboxes
 
+    temp = None
     for i, bb in enumerate(bboxes):  # iterate old bboxes
         check = False  # indicates unwanted joins
 
+        j = None
         # check if bb can extend one of the new blocks
         for j in range(len(nblocks)):
             nbb = nblocks[j]  # a new block
 
             # never join across columns
-            if bb == None or nbb.x1 < bb.x0 or bb.x1 < nbb.x0:
+            if bb is None or nbb.x1 < bb.x0 or bb.x1 < nbb.x0:
                 continue
 
-            # never join across different background colors
-            if in_bbox(nbb, path_bboxes) != in_bbox(bb, path_bboxes):
+            # never join across figures
+            if any_rect_between_over_y(nbb, bb, graphic_rects):
+                continue
+
+            # never join across text blocks
+            if any_rect_between_over_y(nbb, bb, nblocks):
                 continue
 
             temp = bb | nbb  # temporary extension of new block
-            check = can_extend(temp, nbb, nblocks)
-            if check == True:
+            check = can_extend(temp, nbb, nblocks, vert_bboxes)
+            if check:
                 break
 
         if not check:  # bb cannot be used to extend any of the new bboxes
@@ -311,12 +258,11 @@ def column_boxes(
             j = len(nblocks) - 1  # index of it
             temp = nblocks[j]  # new bbox added
 
-        # check if some remaining bbox is contained in temp
-        check = can_extend(temp, bb, bboxes)
-        if check == False:
-            nblocks.append(bb)
-        else:
-            nblocks[j] = temp
+        if j is not None:
+            if can_extend(temp, bb, bboxes, vert_bboxes):
+                nblocks[j] = temp
+            else:
+                nblocks.append(bb)
         bboxes[i] = None
 
     # do some elementary cleaning
@@ -351,7 +297,7 @@ if __name__ == "__main__":
         header_margin = 50
 
     # open document
-    doc = fitz.open(filename)
+    doc = pymupdf.open(filename)
 
     # iterate over the pages
     for page in doc:
@@ -368,10 +314,10 @@ if __name__ == "__main__":
             shape.draw_rect(rect)  # draw a border
 
             # write sequence number
-            shape.insert_text(rect.tl + (5, 15), str(i), color=fitz.pdfcolor["red"])
+            shape.insert_text(rect.tl + (5, 15), str(i), color=pymupdf.pdfcolor["red"])
 
         # finish drawing / text with color red
-        shape.finish(color=fitz.pdfcolor["red"])
+        shape.finish(color=pymupdf.pdfcolor["red"])
         shape.commit()  # store to the page
 
     # save document with text bboxes

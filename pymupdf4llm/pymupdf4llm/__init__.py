@@ -1,4 +1,7 @@
-from .helpers.pymupdf_rag import to_markdown, IdentifyHeaders
+__all__ = ["to_markdown", "LlamaMarkdownReader"]
+
+from pymupdf4llm.pymupdf4llm.to_markdown import to_markdown
+from pymupdf4llm.pymupdf4llm.helpers.identify_headers import DefaultHeadersIdentifier
 
 __version__ = "0.0.5"
 version = __version__

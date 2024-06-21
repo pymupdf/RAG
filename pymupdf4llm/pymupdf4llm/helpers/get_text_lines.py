@@ -15,10 +15,7 @@ License GNU Affero GPL 3.0
 import string
 import sys
 
-try:
-    import pymupdf as fitz  # available with v1.24.3
-except ImportError:
-    import fitz
+from .._pymupdf import pymupdf
 
 WHITE = set(string.whitespace)
 
@@ -54,19 +51,19 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         generated line breaks to indicate large inter-span distances.
     """
     y_delta = tolerance  # allowable vertical coordinate deviation
-    if clip == None:  # use TextPage if not provided
+    if clip is None:  # use TextPage if not provided
         clip = textpage.rect
     # extract text blocks - if bbox is not empty
     blocks = [
         b
         for b in textpage.extractDICT()["blocks"]
-        if b["type"] == 0 and not fitz.Rect(b["bbox"]).is_empty
+        if b["type"] == 0 and not pymupdf.Rect(b["bbox"]).is_empty
     ]
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):
         for lno, l in enumerate(b["lines"]):
             for s in l["spans"]:
-                sbbox = fitz.Rect(s["bbox"])  # turn to a Rect
+                sbbox = pymupdf.Rect(s["bbox"])  # turn to a Rect
                 if (
                     abs(sbbox & clip) < abs(sbbox) * 0.8
                 ):  # must be inside parameter rectangle
@@ -124,7 +121,7 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
         cases of text replaced by way of redaction annotations.
 
     Args:
-        page: (fitz.Page)
+        page: (pymupdf.Page)
         textpage: (TextPage) if None a temporary one is created.
         clip: (rect-like) only consider spans inside this area
         sep: (str) use this string when joining multiple MuPDF lines.
@@ -132,23 +129,18 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
         String of plain text in reading sequence.
     """
     page.remove_rotation()
-    prect = page.rect if not clip else fitz.Rect(clip)  # area to consider
-
-    xsep = sep if sep == "|" else ""
+    prect = page.rect if not clip else pymupdf.Rect(clip)  # area to consider
 
     # make a TextPage if required
     if textpage is None:
         if ocr is False:
-            tp = page.get_textpage(clip=prect, flags=fitz.TEXTFLAGS_TEXT)
+            tp = page.get_textpage(clip=prect, flags=pymupdf.TEXTFLAGS_TEXT)
         else:
             tp = page.get_textpage_ocr(dpi=300, full=True)
     else:
         tp = textpage
 
     lines = get_raw_lines(tp, clip=prect, tolerance=tolerance)
-
-    if not textpage:  # delete temp TextPage
-        tp = None
 
     if not lines:
         return ""
@@ -213,7 +205,7 @@ if __name__ == "__main__":
     import pathlib
 
     filename = sys.argv[1]
-    doc = fitz.open(filename)
+    doc = pymupdf.open(filename)
     text = ""
     for page in doc:
         text += get_text_lines(page, sep=" ") + "\n" + chr(12) + "\n"
