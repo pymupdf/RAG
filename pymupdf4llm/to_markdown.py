@@ -55,7 +55,7 @@ class Output(TypedDict):
     table_of_contents: list
 
 
-def to_markdown(
+def process_document(
     doc: str | Path | pymupdf.Document,
     *,
     pages: list[int] | None = None,
@@ -170,6 +170,18 @@ def to_markdown(
     }
 
 
+def join_chunks(output: Output) -> str:
+    """Join the text of all page chunks in the output.
+
+    Args:
+        output: the output of the 'process_document' function.
+
+    Returns:
+        A string with the text of all page chunks joined together.
+    """
+    return "\n\n-----\n\n".join([chunk["text"] for chunk in output["page_chunks"]])
+
+
 if __name__ == "__main__":
     import pathlib
     import sys
@@ -204,10 +216,9 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    output = to_markdown(doc, pages=pages)
+    md_string = join_chunks(process_document(doc, pages=pages))
     # output to a text file with extension ".md"
     outname = doc.name.replace(".pdf", ".md")
-    md_string = "\n\n-----\n\n".join([chunk["text"] for chunk in output["page_chunks"]])
     pathlib.Path(outname).write_bytes(md_string.encode())
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1 - t0, 2)} sec.")

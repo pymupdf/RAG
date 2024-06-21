@@ -58,7 +58,7 @@ API
 
         This is the only method of the markdown reader you should currently use to extract markdown data. Please in any case ignore methods `aload_data()` and `lazy_load_data()`. Other methods like `use_doc_meta()` may or may not make sense. For more information, please consult the documentation of LlamaIndex [#f1]_.
 
-        Under the hood the method will execute `to_markdown()`.
+        Under the hood the method will execute `process_document()`.
 
         :returns: a list of `LlamaIndexDocument` documents - one for each page.
 

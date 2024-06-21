@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from .. import to_markdown
+from ..to_markdown import process_document, join_chunks
 from .._pymupdf import pymupdf
 
 try:
@@ -13,7 +13,7 @@ except ImportError:
     raise NotImplementedError("Please install required 'llama_index'.")
 
 
-class PDFMarkdownReader(BaseReader):
+class LlamaMarkdownReader(BaseReader):
     """Read PDF files using PyMuPDF library."""
 
     meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None
@@ -73,9 +73,8 @@ class PDFMarkdownReader(BaseReader):
         if self.meta_filter:
             extra_info = self.meta_filter(extra_info)
 
-        output = to_markdown(doc, pages=[page_number])
-        text = "\n\n-----\n\n".join([chunk["text"] for chunk in output["page_chunks"]])
-        return LlamaIndexDocument(text=text, extra_info=extra_info)
+        md_string = join_chunks(process_document(doc, pages=[page_number]))
+        return LlamaIndexDocument(text=md_string, extra_info=extra_info)
 
     def _process_doc_meta(
         self,

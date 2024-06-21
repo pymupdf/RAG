@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "pymupdf4llm"
+version = "0.1.0"
+description = "PyMuPDF Utilities for LLM/RAG"
+authors = ["Artifex <support@artifex.com>"]
+license = "GNU AFFERO GPL 3.0"
+readme = "README.md"
+packages = [
+    { include = "pymupdf4llm", from = "." },
+]
+keywords = ["pymupdf", "rag", "llm", "pdf"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
+repository = "https://github.com/pymupdf/RAG"
+documentation = "https://pymupdf4llm.readthedocs.io/en/latest/"
+include = [
+    "LICENSE",
+    "README.md",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/pymupdf/RAG/issues"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pymupdf = ">=1.24.2"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.4.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
