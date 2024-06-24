@@ -119,7 +119,21 @@ def column_boxes(
     # avoid when expanding horizontal text boxes
     vert_bboxes = []
 
-    def can_extend(temp, bb, bboxlist):
+    def in_bbox(bb, bboxes):
+        """Return 1-based number if a bbox contains bb, else return 0."""
+        for i, bbox in enumerate(bboxes):
+            if bb in bbox:
+                return i + 1
+        return 0
+
+    def intersects_bboxes(bb, bboxes):
+        """Return True if a bbox touches bb, else return False."""
+        for bbox in bboxes:
+            if not (bb & bbox).is_valid:
+                return True
+        return False
+
+    def can_extend(temp, bb, bboxlist, vert_bboxes):
         """Determines whether rectangle 'temp' can be extended by 'bb'
         without intersecting any of the rectangles contained in 'bboxlist'.
 
@@ -130,65 +144,141 @@ def column_boxes(
         """
         for b in bboxlist:
             if not intersects_bboxes(temp, vert_bboxes) and (
-                b == None or b == bb or (temp & b).is_empty
+                b is None or b == bb or (temp & b).is_empty
             ):
                 continue
             return False
 
         return True
 
-    def in_bbox(bb, bboxes):
-        """Return 1-based number if a bbox contains bb, else return 0."""
-        for i, bbox in enumerate(bboxes):
-            if bb in bbox:
-                return i + 1
-        return 0
+    # def extend_right(bboxes, width, path_bboxes, vert_bboxes, img_bboxes):
+    #     """Extend a bbox to the right page border.
 
-    def intersects_bboxes(bb, bboxes):
-        """Return True if a bbox intersects bb, else return False."""
-        for bbox in bboxes:
-            if not (bb & bbox).is_empty:
-                return True
-        return False
+    #     Whenever there is no text to the right of a bbox, enlarge it up
+    #     to the right page border.
 
-    def extend_right(bboxes, width, path_bboxes, vert_bboxes, img_bboxes):
-        """Extend a bbox to the right page border.
+    #     Args:
+    #         bboxes: (list[IRect]) bboxes to check
+    #         width: (int) page width
+    #         path_bboxes: (list[IRect]) bboxes with a background color
+    #         vert_bboxes: (list[IRect]) bboxes with vertical text
+    #         img_bboxes: (list[IRect]) bboxes of images
+    #     Returns:
+    #         Potentially modified bboxes.
+    #     """
+    #     for i, bb in enumerate(bboxes):
+    #         # do not extend text with background color
+    #         if in_bbox(bb, path_bboxes):
+    #             continue
 
-        Whenever there is no text to the right of a bbox, enlarge it up
-        to the right page border.
+    #         # do not extend text in images
+    #         if in_bbox(bb, img_bboxes):
+    #             continue
 
-        Args:
-            bboxes: (list[IRect]) bboxes to check
-            width: (int) page width
-            path_bboxes: (list[IRect]) bboxes with a background color
-            vert_bboxes: (list[IRect]) bboxes with vertical text
-            img_bboxes: (list[IRect]) bboxes of images
-        Returns:
-            Potentially modified bboxes.
+    #         # temp extends bb to the right page border
+    #         temp = +bb
+    #         temp.x1 = width
+
+    #         # do not cut through colored background or images
+    #         if intersects_bboxes(temp, path_bboxes + vert_bboxes + img_bboxes):
+    #             continue
+
+    #         # also, do not intersect other text bboxes
+    #         check = can_extend(temp, bb, bboxes, vert_bboxes)
+    #         if check:
+    #             bboxes[i] = temp  # replace with enlarged bbox
+
+    #     return [b for b in bboxes if b != None]
+
+    def join_rects_phase1(bboxes):
+        """Postprocess identified text blocks, phase 1.
+
+        Joins any rectangles that "touch" each other. This means that
+        their intersection is valid (but may be empty).
         """
-        for i, bb in enumerate(bboxes):
-            # do not extend text with background color
-            if in_bbox(bb, path_bboxes):
+        prects = bboxes[:]
+        new_rects = []
+        while prects:
+            prect0 = prects[0]
+            repeat = True
+            while repeat:
+                repeat = False
+                for i in range(len(prects) - 1, 0, -1):
+                    if (prect0 & prects[i]).is_valid:
+                        prect0 |= prects[i]
+                        del prects[i]
+                        repeat = True
+            new_rects.append(prect0)
+            del prects[0]
+        return new_rects
+
+    def join_rects_phase2(bboxes):
+        """Postprocess identified text blocks, phase 2.
+
+        Increase the width of each text block so that small left or right
+        border differences are removed. Then try to join even more text
+        rectangles.
+        """
+        prects = bboxes[:]  # copy of argument list
+        for i in range(len(prects)):
+            b = prects[i]
+            # go left and right somewhat
+            x0 = min([bb.x0 for bb in prects if abs(bb.x0 - b.x0) <= 3])
+            x1 = max([bb.x1 for bb in prects if abs(bb.x1 - b.x1) <= 3])
+            b.x0 = x0  # store new left / right border
+            b.x1 = x1
+            prects[i] = b
+
+        # sort by left, top
+        prects.sort(key=lambda b: (b.x0, b.y0))
+        new_rects = [prects[0]]  # initialize with first item
+
+        # walk through the rest, top to bottom, thwn left to right
+        for r in prects[1:]:
+            r0 = new_rects[-1]  # previous bbox
+
+            # join if we have similar borders and are not to far down
+            if (
+                abs(r.x0 - r0.x0) <= 3
+                and abs(r.x1 - r0.x1) <= 3
+                and abs(r0.y1 - r.y0) <= 12
+            ):
+                r0 |= r
+                new_rects[-1] = r0
                 continue
+            # else append this as new text block
+            new_rects.append(r)
+        return new_rects
 
-            # do not extend text in images
-            if in_bbox(bb, img_bboxes):
-                continue
-
-            # temp extends bb to the right page border
-            temp = +bb
-            temp.x1 = width
-
-            # do not cut through colored background or images
-            if intersects_bboxes(temp, path_bboxes + vert_bboxes + img_bboxes):
-                continue
-
-            # also, do not intersect other text bboxes
-            check = can_extend(temp, bb, bboxes)
-            if check:
-                bboxes[i] = temp  # replace with enlarged bbox
-
-        return [b for b in bboxes if b != None]
+    def join_rects_phase3(bboxes):
+        prects = bboxes[:]
+        prects.sort(key=lambda b: (b.x0, b.y0))
+        new_rects = []
+        while prects:
+            prect0 = prects[0]
+            repeat = True
+            while repeat:
+                repeat = False
+                for i in range(len(prects) - 1, 0, -1):
+                    prect1 = prects[i]
+                    if prect1.x0 > prect0.x1 or prect1.x1 < prect0.x0:
+                        continue
+                    temp = prect0 | prects[i]
+                    test = set(
+                        [
+                            tuple(b)
+                            for b in prects + new_rects
+                            if b.intersects(temp)
+                        ]
+                    )
+                    if test == set((tuple(prect0), tuple(prect1))):
+                        prect0 |= prect1
+                        del prects[i]
+                        repeat = True
+            new_rects.append(prect0)
+            del prects[0]
+        new_rects.sort(key=lambda b: (b.y0, b.x0))
+        return new_rects
 
     def clean_nblocks(nblocks):
         """Do some elementary cleaning."""
@@ -224,7 +314,9 @@ def column_boxes(
                 i0 = i  # store its start index
             i1 = i  # store current index
         if i1 > i0:  # segment waiting to be sorted
-            nblocks[i0 : i1 + 1] = sorted(nblocks[i0 : i1 + 1], key=lambda b: b.x0)
+            nblocks[i0 : i1 + 1] = sorted(
+                nblocks[i0 : i1 + 1], key=lambda b: b.x0
+            )
         return nblocks
 
     # extract vector graphics
@@ -251,7 +343,11 @@ def column_boxes(
             continue
 
         # confirm first line to be horizontal
-        line0 = b["lines"][0]  # get first line
+        try:
+            line0 = b["lines"][0]  # get first line
+        except IndexError:
+            continue
+
         if line0["dir"] != (1, 0):  # only accept horizontal text
             vert_bboxes.append(bbox)
             continue
@@ -271,9 +367,9 @@ def column_boxes(
     bboxes.sort(key=lambda k: (in_bbox(k, path_bboxes), k.y0, k.x0))
 
     # Extend bboxes to the right where possible
-    bboxes = extend_right(
-        bboxes, int(page.rect.width), path_bboxes, vert_bboxes, img_bboxes
-    )
+    # bboxes = extend_right(
+    #     bboxes, int(page.rect.width), path_bboxes, vert_bboxes, img_bboxes
+    # )
 
     # immediately return of no text found
     if bboxes == []:
@@ -302,7 +398,7 @@ def column_boxes(
                 continue
 
             temp = bb | nbb  # temporary extension of new block
-            check = can_extend(temp, nbb, nblocks)
+            check = can_extend(temp, nbb, nblocks, vert_bboxes)
             if check == True:
                 break
 
@@ -312,7 +408,7 @@ def column_boxes(
             temp = nblocks[j]  # new bbox added
 
         # check if some remaining bbox is contained in temp
-        check = can_extend(temp, bb, bboxes)
+        check = can_extend(temp, bb, bboxes, vert_bboxes)
         if check == False:
             nblocks.append(bb)
         else:
@@ -321,6 +417,10 @@ def column_boxes(
 
     # do some elementary cleaning
     nblocks = clean_nblocks(nblocks)
+    # final joining of overlapping rectangles
+    nblocks = join_rects_phase1(nblocks)
+    nblocks = join_rects_phase2(nblocks)
+    nblocks = join_rects_phase3(nblocks)
 
     # return identified text bboxes
     return nblocks
@@ -335,6 +435,7 @@ if __name__ == "__main__":
     """
     import sys
 
+    RED = fitz.pdfcolor["red"]
     # get the file name
     filename = sys.argv[1]
 
@@ -368,10 +469,10 @@ if __name__ == "__main__":
             shape.draw_rect(rect)  # draw a border
 
             # write sequence number
-            shape.insert_text(rect.tl + (5, 15), str(i), color=fitz.pdfcolor["red"])
+            shape.insert_text(rect.tl + (5, 15), str(i), color=RED)
 
         # finish drawing / text with color red
-        shape.finish(color=fitz.pdfcolor["red"])
+        shape.finish(color=RED)
         shape.commit()  # store to the page
 
     # save document with text bboxes

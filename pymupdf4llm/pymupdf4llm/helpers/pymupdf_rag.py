@@ -40,7 +40,15 @@ from pymupdf4llm.helpers.multi_column import column_boxes
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
-bullet = ("- ", "* ", chr(0xF0A7), chr(0xF0B7), chr(0xB7), chr(8226), chr(9679))
+bullet = (
+    "- ",
+    "* ",
+    chr(0xF0A7),
+    chr(0xF0B7),
+    chr(0xB7),
+    chr(8226),
+    chr(9679),
+)
 GRAPHICS_TEXT = "\n![%s](%s)\n"
 
 
@@ -124,18 +132,52 @@ class IdentifyHeaders:
 
 
 def to_markdown(
-    doc: str,
+    doc,
     *,
     pages: list = None,
     hdr_info=None,
     write_images: bool = False,
     page_chunks: bool = False,
     margins=(0, 50, 0, 50),
+    dpi=150,
+    page_width=612,
+    page_height=None,
+    table_strategy="lines_strict",
+    graphics_limit=None,
 ) -> str:
-    """Process the document and return the text of its selected pages."""
+    """Process the document and return the text of the selected pages.
 
-    if isinstance(doc, str):
+    Args:
+        doc: pymupdf.Document or string.
+        pages: list of page numbers to consider (0-based).
+        hdr_info: callable or object having a method named 'get_hdr_info'.
+        write_images: (bool) whether to save images / drawing as files.
+        page_chunks: (bool) whether to segment output by page.
+        margins: do not consider content overlapping margin areas.
+        dpi: (int) desired resolution for generated images.
+        page_width: (float) assumption if page layout is variable.
+        page_height: (float) assumption if page layout is variable.
+        table_strategy: choose table detection strategy
+        graphics_limit: (int) ignore page with too many vector graphics.
+
+    """
+
+    DPI = dpi
+    GRAPHICS_LIMIT = graphics_limit
+    if not isinstance(doc, fitz.Document):
         doc = fitz.open(doc)
+
+    # for reflowable documents allow making 1 page for the whole document
+    if doc.is_reflowable:
+        if hasattr(page_height, "__float__"):
+            # accept user page dimensions
+            doc.layout(width=page_width, height=page_height)
+        else:
+            # no page height limit given: make 1 page for whole document
+            doc.layout(width=page_width, height=792)
+            page_count = doc.page_count
+            height = 792 * page_count  # height that covers full document
+            doc.layout(width=page_width, height=height)
 
     if pages is None:  # use all pages if no selection given
         pages = list(range(doc.page_count))
@@ -145,28 +187,40 @@ def to_markdown(
     if len(margins) == 2:
         margins = (0, margins[0], 0, margins[1])
     if len(margins) != 4:
-        raise ValueError("margins must have length 2 or 4 or be a number.")
+        raise ValueError(
+            "margins must be a float or a sequence of 2 or 4 floats"
+        )
     elif not all([hasattr(m, "__float__") for m in margins]):
-        raise ValueError("margin values must be numbers")
+        raise ValueError("margin values must be floats")
 
     # If "hdr_info" is not an object having method "get_header_id", scan the
     # document and use font sizes as header level indicators.
     if callable(hdr_info):
         get_header_id = hdr_info
-    elif hasattr(hdr_info, "get_header_id") and callable(hdr_info.get_header_id):
+    elif hasattr(hdr_info, "get_header_id") and callable(
+        hdr_info.get_header_id
+    ):
         get_header_id = hdr_info.get_header_id
     else:
         hdr_info = IdentifyHeaders(doc)
         get_header_id = hdr_info.get_header_id
 
     def resolve_links(links, span):
-        """Accept a span and return a markdown link string."""
+        """Accept a span and return a markdown link string.
+
+        Args:
+            links: a list as returned by page.get_links()
+            span: a span dictionary as returned by page.get_text("dict")
+
+        Returns:
+            None or a string representing the link in MD format.
+        """
         bbox = fitz.Rect(span["bbox"])  # span bbox
         # a link should overlap at least 70% of the span
-        bbox_area = 0.7 * abs(bbox)
         for link in links:
             hot = link["from"]  # the hot area of the link
-            if not abs(hot & bbox) >= bbox_area:
+            middle = (hot.tl + hot.br) / 2  # middle point of hot area
+            if not middle in bbox:
                 continue  # does not touch the bbox
             text = f'[{span["text"].strip()}]({link["uri"]})'
             return text
@@ -176,9 +230,7 @@ def to_markdown(
         filename = page.parent.name.replace("\\", "/")
         image_path = f"{filename}-{page.number}-{i}.png"
         if write_images is True:
-            pix = page.get_pixmap(clip=rect)
-            pix.save(image_path)
-            del pix
+            page.get_pixmap(clip=rect, dpi=DPI).save(image_path)
             return os.path.basename(image_path)
         return ""
 
@@ -330,7 +382,9 @@ def to_markdown(
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        text = (
+                            f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        )
 
                     if text.startswith(bullet):
                         text = "-  " + text[1:]
@@ -343,7 +397,9 @@ def to_markdown(
             code = False
 
         return (
-            out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
+            out_string.replace(" \n", "\n")
+            .replace("  ", " ")
+            .replace("\n\n\n", "\n\n")
         )
 
     def is_in_rects(rect, rect_list):
@@ -427,24 +483,32 @@ def to_markdown(
         """
         page = doc[pno]
         md_string = ""
+        if GRAPHICS_LIMIT is not None:
+            test_paths = page.get_cdrawings()
+            if (excess := len(test_paths)) > GRAPHICS_LIMIT:
+                md_string = f"\n**Ignoring page {page.number} with {excess} vector graphics.**"
+                md_string += "\n\n-----\n\n"
+                return md_string, [], [], []
         left, top, right, bottom = margins
         clip = page.rect + (left, top, -right, -bottom)
-        # extract all links on page
-        links = [l for l in page.get_links() if l["kind"] == 2]
+        # extract external links on page
+        links = [l for l in page.get_links() if l["kind"] == fitz.LINK_URI]
 
         # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags, clip=clip)
 
-        img_info = [img for img in page.get_image_info() if img["bbox"] in clip]
+        img_info = [
+            img for img in page.get_image_info() if img["bbox"] in clip
+        ]
         images = img_info[:]
         tables = []
         graphics = []
 
         # Locate all tables on page
-        tabs = page.find_tables(clip=clip, strategy="lines_strict")
+        tabs = page.find_tables(clip=clip, strategy=table_strategy)
 
         # Make a list of table boundary boxes.
-        # Must include the header bbox (may exist outside tab.bbox)
+        # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
         for i, t in enumerate(tabs):
             tab_rects[i] = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
@@ -454,6 +518,8 @@ def to_markdown(
                 "columns": t.col_count,
             }
             tables.append(tab_dict)
+
+        # list of table rectangles
         tab_rects0 = list(tab_rects.values())
 
         # Select paths that are not contained in any table
@@ -467,8 +533,8 @@ def to_markdown(
             and p["rect"].height < page_clip.height
         ]
 
-        # Determine vector graphics outside any tables, filerting out any
-        # which contain no stroked paths
+        # Determine vector graphics outside any tables, ignoring any
+        # fill-only (type "f") paths.
         vg_clusters = []
         for bbox in page.cluster_drawings(drawings=paths):
             include = False
@@ -479,10 +545,12 @@ def to_markdown(
                 if [item[0] for item in p["items"] if item[0] == "c"]:
                     include = True
                     break
-                if include is True:
-                    vg_clusters.append(bbox)
+            if include is True:
+                vg_clusters.append(bbox)
 
-        actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
+        actual_paths = [
+            p for p in paths if is_in_rects(p["rect"], vg_clusters)
+        ]
 
         vg_clusters0 = [
             r
@@ -502,7 +570,10 @@ def to_markdown(
             no_image_text=write_images,
             textpage=textpage,
             avoid=tab_rects0 + vg_clusters0,
+            footer_margin=margins[3],
+            header_margin=margins[1],
         )
+
         """Extract markdown text iterating over text rectangles.
         We also output any tables. They may live above, below or inside
         the text rectangles.
@@ -540,7 +611,6 @@ def to_markdown(
     toc = doc.get_toc()
     textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
     for pno in pages:
-
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
         )

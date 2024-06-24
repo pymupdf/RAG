@@ -26,7 +26,9 @@ class PDFMarkdownReader(BaseReader):
 
     def __init__(
         self,
-        meta_filter: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+        meta_filter: Optional[
+            Callable[[Dict[str, Any]], Dict[str, Any]]
+        ] = None,
     ):
         self.meta_filter = meta_filter
 
@@ -81,7 +83,9 @@ class PDFMarkdownReader(BaseReader):
         hdr_info: IdentifyHeaders,
     ):
         """Processes a single page of a PDF document."""
-        extra_info = self._process_doc_meta(doc, file_path, page_number, extra_info)
+        extra_info = self._process_doc_meta(
+            doc, file_path, page_number, extra_info
+        )
 
         if self.meta_filter:
             extra_info = self.meta_filter(extra_info)
