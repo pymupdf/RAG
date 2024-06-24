@@ -64,15 +64,20 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     ]
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):
-        for lno, l in enumerate(b["lines"]):
-            for s in l["spans"]:
+        for lno, line in enumerate(b["lines"]):
+            lbbox = fitz.Rect(line["bbox"])
+            for sno, s in enumerate(line["spans"]):
                 sbbox = fitz.Rect(s["bbox"])  # turn to a Rect
-                if (
-                    abs(sbbox & clip) < abs(sbbox) * 0.8
-                ):  # must be inside parameter rectangle
+                mpoint = (sbbox.tl + sbbox.br) / 2  # middle point
+                if mpoint not in clip:
                     continue
                 if is_white(s["text"]):  # ignore white text
                     continue
+                if s["flags"] & 1 == 1:  # if a superscript, modify
+                    i = 1 if sno == 0 else sno - 1
+                    neighbor = line["spans"][i]
+                    sbbox.y1 = neighbor["bbox"][3]
+                    s["text"] = f"[{s['text']}]"
                 s["bbox"] = sbbox  # update with the Rect version
                 # include line identifier to facilitate separator insertion
                 s["line"] = lno
@@ -82,7 +87,9 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     if not spans:  # we may have no text at all
         return []
 
-    spans.sort(key=lambda s: s["bbox"].y1)  # sort spans by assending bottom coord
+    spans.sort(
+        key=lambda s: s["bbox"].y1
+    )  # sort spans by assending bottom coord
     nlines = []  # final result
     line = [spans[0]]  # collects spans with fitting vertical coordinate
     lrect = spans[0]["bbox"]  # rectangle joined from span rectangles
@@ -91,7 +98,10 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         sbbox = s["bbox"]
         sbbox0 = line[-1]["bbox"]
         # if any of top or bottom coordinates are close enough, join...
-        if abs(sbbox.y1 - sbbox0.y1) <= y_delta or abs(sbbox.y0 - sbbox0.y0) <= y_delta:
+        if (
+            abs(sbbox.y1 - sbbox0.y1) <= y_delta
+            or abs(sbbox.y0 - sbbox0.y0) <= y_delta
+        ):
             line.append(s)  # append to this line
             lrect |= sbbox  # extend line rectangle
             continue
@@ -112,7 +122,9 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     return nlines
 
 
-def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False):
+def get_text_lines(
+    page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False
+):
     """Extract text by line keeping natural reading sequence.
 
     Notes:

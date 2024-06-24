@@ -154,6 +154,13 @@ API
 
 See :doc:`api`.
 
+
+Change Log
+------------
+
+See :doc:`changes`.
+
+
 Further Resources
 -------------------
 
