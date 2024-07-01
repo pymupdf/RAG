@@ -4,6 +4,20 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.7
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `54 <https://github.com/pymupdf/RAG/issues/54>`_ "Mistakes in orchestrating sentences". Additional fix: text extraction no longer uses the TEXT_DEHYPHNATE flag bit.
+
+Improvements:
+~~~~~~~~~~~~~~~~
+
+* Improved the algorithm dealing with vector graphics. Vector graphics are now more reliably classified as irrelevant when they are simple background for text (quite often the case for code snippets).
+
+
 Changes in version 0.0.6
 --------------------------
 
