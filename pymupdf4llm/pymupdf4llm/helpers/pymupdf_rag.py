@@ -187,9 +187,7 @@ def to_markdown(
     if len(margins) == 2:
         margins = (0, margins[0], 0, margins[1])
     if len(margins) != 4:
-        raise ValueError(
-            "margins must be a float or a sequence of 2 or 4 floats"
-        )
+        raise ValueError("margins must be a float or a sequence of 2 or 4 floats")
     elif not all([hasattr(m, "__float__") for m in margins]):
         raise ValueError("margin values must be floats")
 
@@ -197,9 +195,7 @@ def to_markdown(
     # document and use font sizes as header level indicators.
     if callable(hdr_info):
         get_header_id = hdr_info
-    elif hasattr(hdr_info, "get_header_id") and callable(
-        hdr_info.get_header_id
-    ):
+    elif hasattr(hdr_info, "get_header_id") and callable(hdr_info.get_header_id):
         get_header_id = hdr_info.get_header_id
     else:
         hdr_info = IdentifyHeaders(doc)
@@ -382,9 +378,7 @@ def to_markdown(
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        text = (
-                            f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
-                        )
+                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
 
                     if text.startswith(bullet):
                         text = "-  " + text[1:]
@@ -397,9 +391,7 @@ def to_markdown(
             code = False
 
         return (
-            out_string.replace(" \n", "\n")
-            .replace("  ", " ")
-            .replace("\n\n\n", "\n\n")
+            out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
         )
 
     def is_in_rects(rect, rect_list):
@@ -486,7 +478,9 @@ def to_markdown(
         if GRAPHICS_LIMIT is not None:
             test_paths = page.get_cdrawings()
             if (excess := len(test_paths)) > GRAPHICS_LIMIT:
-                md_string = f"\n**Ignoring page {page.number} with {excess} vector graphics.**"
+                md_string = (
+                    f"\n**Ignoring page {page.number} with {excess} vector graphics.**"
+                )
                 md_string += "\n\n-----\n\n"
                 return md_string, [], [], []
         left, top, right, bottom = margins
@@ -497,9 +491,7 @@ def to_markdown(
         # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags, clip=clip)
 
-        img_info = [
-            img for img in page.get_image_info() if img["bbox"] in clip
-        ]
+        img_info = [img for img in page.get_image_info() if img["bbox"] in clip]
         images = img_info[:]
         tables = []
         graphics = []
@@ -533,24 +525,42 @@ def to_markdown(
             and p["rect"].height < page_clip.height
         ]
 
-        # Determine vector graphics outside any tables, ignoring any
-        # fill-only (type "f") paths.
-        vg_clusters = []
+        # We also ignore vector graphics that only represent "background
+        # sugar".
+        vg_clusters = []  # worthwhile vector graphics go here
+
+        # walk through all vector graphics not belonging to a table
         for bbox in page.cluster_drawings(drawings=paths):
+            subbox = bbox + (3, 3, -3, -3)  # sub rect without any border
+            box_area = abs(bbox)
             include = False
-            for p in [p for p in paths if p["rect"] in bbox]:
-                if p["type"] != "f":
+            for p in paths:
+                mp = (p["rect"].tl + p["rect"].br) / 2  # center point of rect
+
+                # fill-only paths or being part of the border will not
+                # make this a worthwhile vector grahic
+                if mp not in subbox or p["type"] == "f":
+                    continue
+
+                # this checks if all items are part of the bbox border
+                near_border = set()
+                for itm in p["items"]:  # walk through path items
+                    if itm[0] == "re":  # a full-sized rectangle
+                        if abs(item[1]) / box_area < 1e-3:
+                            near_border.add(True)  # is part of the border
+                    elif itm[0] in ("c", "l"):  # curves and lines
+                        for temp in itm[1:]:
+                            # if their points are on the border
+                            near_border.add(temp not in subbox)
+                # if any stroked path has a point inside bbox (i.e. not on its
+                # border then this vector graphic is treated as significant
+                if not near_border == {True}:
                     include = True
                     break
-                if [item[0] for item in p["items"] if item[0] == "c"]:
-                    include = True
-                    break
-            if include is True:
+            if include is True:  # this box is a significant vector graphic
                 vg_clusters.append(bbox)
 
-        actual_paths = [
-            p for p in paths if is_in_rects(p["rect"], vg_clusters)
-        ]
+        actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
 
         vg_clusters0 = [
             r
@@ -594,6 +604,7 @@ def to_markdown(
                 links=links,
             )
 
+        md_string = md_string.replace(" ,", ",").replace("-\n", "")
         # write any remaining tables and images
         md_string += output_tables(tabs, None, tab_rects)
         md_string += output_images(None, tab_rects, None)
@@ -609,7 +620,7 @@ def to_markdown(
 
     # read the Table of Contents
     toc = doc.get_toc()
-    textflags = fitz.TEXT_DEHYPHENATE | fitz.TEXT_MEDIABOX_CLIP
+    textflags = fitz.TEXT_MEDIABOX_CLIP
     for pno in pages:
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
