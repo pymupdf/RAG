@@ -546,7 +546,7 @@ def to_markdown(
                 near_border = set()
                 for itm in p["items"]:  # walk through path items
                     if itm[0] == "re":  # a full-sized rectangle
-                        if abs(item[1]) / box_area < 1e-3:
+                        if abs(itm[1]) / box_area < 1e-3:
                             near_border.add(True)  # is part of the border
                     elif itm[0] in ("c", "l"):  # curves and lines
                         for temp in itm[1:]:

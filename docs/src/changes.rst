@@ -4,6 +4,15 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.8
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `65 <https://github.com/pymupdf/RAG/issues/65>`_ Fix typo in `pymupdf_rag.py`.
+
+
 Changes in version 0.0.7
 --------------------------
 
