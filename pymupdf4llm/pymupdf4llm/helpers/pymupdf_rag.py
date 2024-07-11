@@ -187,7 +187,9 @@ def to_markdown(
     if len(margins) == 2:
         margins = (0, margins[0], 0, margins[1])
     if len(margins) != 4:
-        raise ValueError("margins must be a float or a sequence of 2 or 4 floats")
+        raise ValueError(
+            "margins must be one, two or four floats"
+        )
     elif not all([hasattr(m, "__float__") for m in margins]):
         raise ValueError("margin values must be floats")
 
@@ -195,8 +197,12 @@ def to_markdown(
     # document and use font sizes as header level indicators.
     if callable(hdr_info):
         get_header_id = hdr_info
-    elif hasattr(hdr_info, "get_header_id") and callable(hdr_info.get_header_id):
+    elif hasattr(hdr_info, "get_header_id") and callable(
+        hdr_info.get_header_id
+    ):
         get_header_id = hdr_info.get_header_id
+    elif hdr_info is False:
+        get_header_id = lambda s, page=None: ""
     else:
         hdr_info = IdentifyHeaders(doc)
         get_header_id = hdr_info.get_header_id
@@ -378,7 +384,9 @@ def to_markdown(
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        text = (
+                            f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        )
 
                     if text.startswith(bullet):
                         text = "-  " + text[1:]
@@ -391,7 +399,9 @@ def to_markdown(
             code = False
 
         return (
-            out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
+            out_string.replace(" \n", "\n")
+            .replace("  ", " ")
+            .replace("\n\n\n", "\n\n")
         )
 
     def is_in_rects(rect, rect_list):
@@ -474,6 +484,7 @@ def to_markdown(
             graphics information.
         """
         page = doc[pno]
+        page.remove_rotation()  # make sure we work on rotation=0
         md_string = ""
         if GRAPHICS_LIMIT is not None:
             test_paths = page.get_cdrawings()
@@ -491,7 +502,9 @@ def to_markdown(
         # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags, clip=clip)
 
-        img_info = [img for img in page.get_image_info() if img["bbox"] in clip]
+        img_info = [
+            img for img in page.get_image_info() if img["bbox"] in clip
+        ]
         images = img_info[:]
         tables = []
         graphics = []
@@ -560,7 +573,9 @@ def to_markdown(
             if include is True:  # this box is a significant vector graphic
                 vg_clusters.append(bbox)
 
-        actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters)]
+        actual_paths = [
+            p for p in paths if is_in_rects(p["rect"], vg_clusters)
+        ]
 
         vg_clusters0 = [
             r
@@ -620,7 +635,7 @@ def to_markdown(
 
     # read the Table of Contents
     toc = doc.get_toc()
-    textflags = fitz.TEXT_MEDIABOX_CLIP
+    textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
     for pno in pages:
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
