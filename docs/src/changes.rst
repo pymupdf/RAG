@@ -4,6 +4,22 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.9
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `71 <https://github.com/pymupdf/RAG/issues/71>`_ "Unexpected results in pymupdf4llm but pymupdf works"
+* `68 <https://github.com/pymupdf/RAG/issues/68>`_ "Issue with text extraction near footer of page"
+
+
+Improvements:
+~~~~~~~~~~~~~~
+* Improved identification of scattered text span particles. This should address most issues with out-of-sequence situations.
+* We now correctly process rotated pages (see issue #68).
+
+
 Changes in version 0.0.8
 --------------------------
 
@@ -24,7 +40,7 @@ Fixes:
 Improvements:
 ~~~~~~~~~~~~~~~~
 
-* Improved the algorithm dealing with vector graphics. Vector graphics are now more reliably classified as irrelevant when they are simple background for text (quite often the case for code snippets).
+* Improved the algorithm dealing with vector graphics. Vector graphics are now more reliably classified as irrelevant: We now detect when "strokes" only exist in the neighborhood of the graphics boundary box border itself. This is quite often the case for code snippets.
 
 
 Changes in version 0.0.6
