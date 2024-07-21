@@ -4,6 +4,28 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.10
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `73 <https://github.com/pymupdf/RAG/issues/73>`_ "bug in to_markdown internal function"
+* `74 <https://github.com/pymupdf/RAG/issues/74>`_ "minimum area for images & vector graphics"
+* `75 <https://github.com/pymupdf/RAG/issues/75>`_ "Poor Markdown Generation for Particular PDF"
+* `76 <https://github.com/pymupdf/RAG/issues/76>`_ "suggestion on useful api parameters"
+
+
+Improvements:
+~~~~~~~~~~~~~~
+* Improved recognition of "insignificant" vector graphics. Graphics like text highlights or borders will be ignored.
+* The format of saved images can now be controlled via new parameter `image_format`.
+* Images can be stored in a specific folder via the new parameter `image_path`.
+* Images are **not stored if contained** in another image on same page.
+* Images are **not stored if too small:** if width or height are less than 5% of corresponding page dimension.
+* All text is always written. If `write_images=True`, text on images / graphics can be suppressed by setting `force_text=False`.
+
+
 Changes in version 0.0.9
 --------------------------
 

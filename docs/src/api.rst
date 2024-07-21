@@ -10,7 +10,7 @@ API
 
     Prints the version of the library.
 
-.. method:: to_markdown(doc: pymupdf.Document | str, *, pages: list | range | None = None, hdr_info: Any = None, write_images: bool = False, dpi: int = 150, margins=(0, 50, 0, 50), page_chunks: bool = False, page_width: float = 612, page_height: float = None, table_strategy="lines_strict", graphics_limit: int = None) -> str | list[dict]
+.. method:: to_markdown(doc: pymupdf.Document | str, *, pages: list | range | None = None, hdr_info: Any = None, write_images: bool = False, dpi: int = 150, image_path="", image_format="png", force_text=True, margins=(0, 50, 0, 50), page_chunks: bool = False, page_width: float = 612, page_height: float = None, table_strategy="lines_strict", graphics_limit: int = None) -> str | list[dict]
 
     Read the pages of the file and outputs the text of its pages in |Markdown| format. How this should happen in detail can be influenced by a number of parameters. Please note that there exists **support for building page chunks** from the |Markdown|  text.
 
@@ -20,9 +20,15 @@ API
 
     :arg hdr_info: optional. Use this if you want to provide your own header detection logic. This may be a callable or an object having a method named `get_header_id`. It must accept a text span (a span dictionary as contained in `extractDict <https://pymupdf.readthedocs.io/en/latest/textpage.html#span-dictionary>`_) and a keyword parameter "page" (which is the owning `Page <https://pymupdf.readthedocs.io/en/latest/page.html>`_ object). It must return a string "" or up to 6 "#" characters followed by 1 space. If omitted, a full document scan will be performed to find the most popular font sizes and derive header levels based on them. To completely avoid this behavior specify `hdr_info=lambda s, page=None: ""` or `hdr_info=False`.
 
-    :arg bool write_images: when encountering images or vector graphics, PNG images will be created from the respective page area and stored in the folder of the document. Markdown references will be generated pointing to these images. Any text contained in these areas will not be included in the text output (but appear as part of the images). Therefore, if your document has text written on full page images, make sure to set this parameter to `False`.
+    :arg bool write_images: when encountering images or vector graphics, images will be created from the respective page area and stored in the specified folder. Markdown references will be generated pointing to these images. Any text contained in these areas will not be included in the text output (but appear as part of the images). Therefore, if for instance your document has text written on full page images, make sure to set this parameter to `False`.
 
     :arg int dpi: specify the desired image resolution in dots per inch. Relevant only if `write_images=True`. Default value is 150.
+
+    :arg str image_path: store images in this folder. Relevant if `write_images=True`. Default is the path of the script directory.
+
+    :arg str image_format: specify the desired image format via its extension. Default is "png" (portable network graphics). Another popular format may be "jpg". Possible values are all `supported output formats <https://pymupdf.readthedocs.io/en/latest/pixmap.html#supported-output-image-formats>`_.
+
+    :arg bool force_text: generate text output even when overlapping images / graphics. This text then appears after the respective image. If `write_images=True` this parameter may be `False` to suppress repetition of text on images.
 
     :arg float,list margins: a float or a sequence of 2 or 4 floats specifying page borders. Only objects inside the margins will be considered for output.
     
