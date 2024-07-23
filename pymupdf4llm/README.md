@@ -33,15 +33,15 @@ pathlib.Path("output.md").write_bytes(md_text.encode())
 
 Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, the parameter `pages=[...]` can be used to provide a list of zero-based page numbers to consider.
 
-**New features as of v0.0.2:**
+**Feature Overview:**
 
 * Support for pages with **_multiple text columns_**.
 * Support for **_image and vector graphics extraction_**:
 
     1. Specify `pymupdf4llm.to_markdown("input.pdf", write_images=True)`. Default is `False`.
-    2. Each image or vector graphic on the page will be extracted and stored as a PNG image named `"input.pdf-pno-index.png"` in the folder of `"input.pdf"`. Where `pno` is the 0-based page number and `index` is some sequence number.
-    3. The image files will have width and height equal to the values on the page.
-    4. Any text contained in the images or graphics will not be extracted, but become visible as image parts.
+    2. Each image or vector graphic on the page will be extracted and stored as an image named `"input.pdf-pno-index.extension"` in a folder of your choice. The image `extension` can be chosen to represent a PyMuPDF-supported image format (for instance "png" or "jpg"),  `pno` is the 0-based page number and `index` is some sequence number.
+    3. The image files will have width and height equal to the values on the page. The desired resolution can be chosen via parameter `dpi` (default: `dpi=150`).
+    4. Any text contained in the images or graphics will be extracted and **also become visible as part of the generated image**. This behavior can be changed via `force_text=False` (text only apears as part of the image).
 
 * Support for **page chunks**: Instead of returning one large string for the whole document, a list of dictionaries can be generated: one for each page. Specify `data = pymupdf4llm.to_markdown("input.pdf", page_chunks=True)`. Then, for instance the first item, `data[0]` will contain a dictionary for the first page with the text and some metadata.
 

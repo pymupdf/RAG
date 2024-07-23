@@ -4,6 +4,21 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.11
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `90 <https://github.com/pymupdf/RAG/issues/90>`_ "'Quad' object has no attribute 'tl'"
+* `88 <https://github.com/pymupdf/RAG/issues/88>`_ "Bug in is_significant function"
+
+
+Improvements:
+~~~~~~~~~~~~~~
+* Extended the list of known bullet point characters.
+
+
 Changes in version 0.0.10
 --------------------------
 

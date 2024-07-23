@@ -40,15 +40,15 @@ from pymupdf4llm.helpers.multi_column import column_boxes
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
-bullet = (
+bullet = [
     "- ",
     "* ",
     chr(0xF0A7),
     chr(0xF0B7),
     chr(0xB7),
     chr(8226),
-    chr(9679),
-)
+] + list(map(chr, range(9642, 9680)))
+
 GRAPHICS_TEXT = "\n![](%s)\n"
 
 
@@ -193,7 +193,7 @@ def is_significant(box, paths):
         for itm in p["items"]:
             if itm[0] in ("l", "c"):  # line or curve
                 points.extend(itm[1:])  # append all the points
-            elif itm[0] == "q":  # quad
+            elif itm[0] == "qu":  # quad
                 q = itm[1]
                 # follow corners anti-clockwise
                 points.extend([q.ul, q.ll, q.lr, q.ur, q.ul])
