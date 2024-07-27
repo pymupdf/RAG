@@ -1,7 +1,6 @@
 import os
 
 import pytest
-from llama_index.core.schema import Document as LlamaIndexDocument
 
 try:
     from llama_index.core.readers.base import BaseReader
@@ -12,7 +11,7 @@ except ImportError:
     raise NotImplementedError("Please install 'llama_index' is needed.")
 
 
-from pymupdf4llm.pymupdf4llm.llama_index.pdf_markdown_reader import PDFMarkdownReader
+from pymupdf4llm.pymupdf4llm.llama.pdf_markdown_reader import PDFMarkdownReader
 
 PDF = "input.pdf"
 
