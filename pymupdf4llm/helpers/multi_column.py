@@ -43,7 +43,7 @@ Usage
   # for each page execute
   bboxes = column_boxes(page, footer_margin=50, no_image_text=True)
 
-  bboxes is a list of fitz.IRect objects, that are sorted ascending by their
+  bboxes is a list of pymupdf.IRect objects, that are sorted ascending by their
   y0, then x0 coordinates. Their text content can be extracted by all PyMuPDF
   get_text() variants, like for instance the following:
   for rect in bboxes:
@@ -52,7 +52,7 @@ Usage
 
 Dependencies
 -------------
-PyMuPDF v1.24.2 or later
+PyMuPDF v1.24.3 or later
 
 Copyright and License
 ----------------------
@@ -62,10 +62,7 @@ License GNU Affero GPL 3.0
 
 import string
 
-try:
-    import pymupdf as fitz
-except ImportError:
-    import fitz
+import pymupdf
 
 
 def column_boxes(
@@ -103,7 +100,7 @@ def column_boxes(
         paths = page.get_drawings()
 
     if textpage is None:
-        textpage = page.get_textpage(clip=clip, flags=fitz.TEXTFLAGS_TEXT)
+        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
 
     bboxes = []
 
@@ -143,9 +140,7 @@ def column_boxes(
             True if 'temp' has no intersections with items of 'bboxlist'.
         """
         for b in bboxlist:
-            if not intersects_bboxes(temp, vert_bboxes) and (
-                b is None or b == bb or (temp & b).is_empty
-            ):
+            if not intersects_bboxes(temp, vert_bboxes) and (b is None or b == bb or (temp & b).is_empty):
                 continue
             return False
 
@@ -238,11 +233,7 @@ def column_boxes(
             r0 = new_rects[-1]  # previous bbox
 
             # join if we have similar borders and are not to far down
-            if (
-                abs(r.x0 - r0.x0) <= 3
-                and abs(r.x1 - r0.x1) <= 3
-                and abs(r0.y1 - r.y0) <= 12
-            ):
+            if abs(r.x0 - r0.x0) <= 3 and abs(r.x1 - r0.x1) <= 3 and abs(r0.y1 - r.y0) <= 12:
                 r0 |= r
                 new_rects[-1] = r0
                 continue
@@ -264,13 +255,7 @@ def column_boxes(
                     if prect1.x0 > prect0.x1 or prect1.x1 < prect0.x0:
                         continue
                     temp = prect0 | prects[i]
-                    test = set(
-                        [
-                            tuple(b)
-                            for b in prects + new_rects
-                            if b.intersects(temp)
-                        ]
-                    )
+                    test = set([tuple(b) for b in prects + new_rects if b.intersects(temp)])
                     if test == set((tuple(prect0), tuple(prect1))):
                         prect0 |= prect1
                         del prects[i]
@@ -307,16 +292,12 @@ def column_boxes(
             b1 = nblocks[i]
             if abs(b1.y1 - y1) > 10:  # different bottom
                 if i1 > i0:  # segment length > 1? Sort it!
-                    nblocks[i0 : i1 + 1] = sorted(
-                        nblocks[i0 : i1 + 1], key=lambda b: b.x0
-                    )
+                    nblocks[i0 : i1 + 1] = sorted(nblocks[i0 : i1 + 1], key=lambda b: b.x0)
                 y1 = b1.y1  # store new bottom value
                 i0 = i  # store its start index
             i1 = i  # store current index
         if i1 > i0:  # segment waiting to be sorted
-            nblocks[i0 : i1 + 1] = sorted(
-                nblocks[i0 : i1 + 1], key=lambda b: b.x0
-            )
+            nblocks[i0 : i1 + 1] = sorted(nblocks[i0 : i1 + 1], key=lambda b: b.x0)
         return nblocks
 
     # extract vector graphics
@@ -336,7 +317,7 @@ def column_boxes(
 
     # Make block rectangles, ignoring non-horizontal text
     for b in blocks:
-        bbox = fitz.IRect(b["bbox"])  # bbox of the block
+        bbox = pymupdf.IRect(b["bbox"])  # bbox of the block
 
         # ignore text written upon images
         if no_image_text and in_bbox(bbox, img_bboxes):
@@ -352,9 +333,9 @@ def column_boxes(
             vert_bboxes.append(bbox)
             continue
 
-        srect = fitz.EMPTY_IRECT()
+        srect = pymupdf.EMPTY_IRECT()
         for line in b["lines"]:
-            lbbox = fitz.IRect(line["bbox"])
+            lbbox = pymupdf.IRect(line["bbox"])
             text = "".join([s["text"].strip() for s in line["spans"]])
             if len(text) > 1:
                 srect |= lbbox
@@ -435,7 +416,7 @@ if __name__ == "__main__":
     """
     import sys
 
-    RED = fitz.pdfcolor["red"]
+    RED = pymupdf.pdfcolor["red"]
     # get the file name
     filename = sys.argv[1]
 
@@ -452,14 +433,12 @@ if __name__ == "__main__":
         header_margin = 50
 
     # open document
-    doc = fitz.open(filename)
+    doc = pymupdf.open(filename)
 
     # iterate over the pages
     for page in doc:
         # get the text bboxes
-        bboxes = column_boxes(
-            page, footer_margin=footer_margin, header_margin=header_margin
-        )
+        bboxes = column_boxes(page, footer_margin=footer_margin, header_margin=header_margin)
 
         # prepare a canvas to draw rectangles and text
         shape = page.new_shape()

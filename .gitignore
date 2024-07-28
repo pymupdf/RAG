@@ -1,2 +1,14 @@
-_build
-build
+### Build ###
+dist
+
+### IDE and OS ###
+.idea
+.vscode
+.DS_Store
+
+### Cache ###
+__pycache__
+*.py[cod]
+
+### Virtual Environment ###
+venv

@@ -1,20 +1,17 @@
-# Using PyMuPDF in an RAG (Retrieval-Augmented Generation) Chatbot Environment
+# Using PyMuPDF as Data Feeder in LLM / RAG Applications
 
-This repository contains examples showing how PyMuPDF can be used as a data feed for RAG-based chatbots.
+This package converts the pages of a PDF to text in Markdown format using [PyMuPDF](https://pypi.org/project/PyMuPDF/).
 
-Examples include scripts that start chatbots - either as simple CLI programs in REPL mode or browser-based GUIs.
-Chatbot scripts follow this general structure:
+Standard text and tables are detected, brought in the right reading sequence and then together converted to GitHub-compatible Markdown text.
 
-1. **Extract Text**: Use PyMuPDF to extract text from one or more pages from one or more PDFs. Depending on the specific requirement this may be all text or only text contained in tables, the Table of Contents, etc.
-This will generally be implemented as one or more Python functions called by any of the following events - which implement the actual chatbot functionality.
-2. **Indexing the Extracted Text**: Index the extracted text for efficient retrieval. This index will act as the knowledge base for the chatbot.
-3. **Query Processing**: When a user asks a question, process the query to determine the key information needed for a response.
-4. **Retrieving Relevant Information**: Search your indexed knowledge base for the most relevant pieces of information related to the user's query.
-5. **Generating a Response**: Use a generative model to generate a response based on the retrieved information.
+Header lines are identified via the font size and appropriately prefixed with one or more '#' tags.
+
+Bold, italic, mono-spaced text and code blocks are detected and formatted accordingly. Similar applies to ordered and unordered lists.
+
+By default, all document pages are processed. If desired, a subset of pages can be specified by providing a list of 0-based page numbers.
+
 
 # Installation
-
-The Python package on PyPI [pymupdf4llm](https://pypi.org/project/pymupdf4llm/) (there also is an alias [pdf4llm](https://pypi.org/project/pdf4llm/)) is capable of converting PDF pages into **_text strings in Markdown format_** (GitHub compatible). This includes **standard text** as well as **table-based text** in a consistent and integrated view - a feature particularly important in RAG settings.
 
 ```bash
 $ pip install -U pymupdf4llm
@@ -22,7 +19,7 @@ $ pip install -U pymupdf4llm
 
 > This command will automatically install [PyMuPDF](https://github.com/pymupdf/PyMuPDF) if required.
 
-Then in your script do
+Then in your script do:
 
 ```python
 import pymupdf4llm
@@ -36,27 +33,30 @@ pathlib.Path("output.md").write_bytes(md_text.encode())
 
 Instead of the filename string as above, one can also provide a PyMuPDF `Document`. By default, all pages in the PDF will be processed. If desired, the parameter `pages=[...]` can be used to provide a list of zero-based page numbers to consider.
 
-Markdown text creation now also processes **multi-column pages**.
+**Feature Overview:**
 
-To create small **chunks of text** - as opposed to generating one large string for the whole document - the new (v0.0.2) option `page_chunks=True` can be used. The result of `.to_markdown("input.pdf", page_chunks=True)` will be a list of Python dictionaries, one for each page.
+* Support for pages with **_multiple text columns_**.
+* Support for **_image and vector graphics extraction_**:
 
-Also new in version 0.0.2 is the optional **extraction of images** and vector graphics: use of parameter `write_images=True`. The will store PNG images in the document's folder, and the Markdown text will appropriately refer to them. The images are named like `"input.pdf-page_number-index.png"`.
+    1. Specify `pymupdf4llm.to_markdown("input.pdf", write_images=True)`. Default is `False`.
+    2. Each image or vector graphic on the page will be extracted and stored as an image named `"input.pdf-pno-index.extension"` in a folder of your choice. The image `extension` can be chosen to represent a PyMuPDF-supported image format (for instance "png" or "jpg"),  `pno` is the 0-based page number and `index` is some sequence number.
+    3. The image files will have width and height equal to the values on the page. The desired resolution can be chosen via parameter `dpi` (default: `dpi=150`).
+    4. Any text contained in the images or graphics will be extracted and **also become visible as part of the generated image**. This behavior can be changed via `force_text=False` (text only apears as part of the image).
 
-# Document Support
+* Support for **page chunks**: Instead of returning one large string for the whole document, a list of dictionaries can be generated: one for each page. Specify `data = pymupdf4llm.to_markdown("input.pdf", page_chunks=True)`. Then, for instance the first item, `data[0]` will contain a dictionary for the first page with the text and some metadata.
 
-While PDF is by far the most important document format worldwide, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
+* As a first example for directly supporting LLM / RAG consumers, this version can output **LlamaIndex documents**:
 
-So for an XPS document or an eBook, simply provide the filename for instance as `"input.mobi"` and everything else will work as before.
+    ```python
+    import pymupdf4llm
+    
+    md_read = LlamaMarkdownReader()
+    data = md_read.load_data("input.pdf")
 
+    # The result 'data' is of type List[LlamaIndexDocument]
+    # Every list item contains metadata and the markdown text of 1 page.
+    ```
 
-# About PyMuPDF
-**PyMuPDF** adds **Python** bindings and abstractions to [MuPDF](https://mupdf.com/), a lightweight **PDF**, **XPS**, and **eBook** viewer, renderer, and toolkit. Both **PyMuPDF** and **MuPDF** are maintained and developed by [Artifex Software, Inc](https://artifex.com).
-
-PyMuPDF's homepage is located on [GitHub](https://github.com/pymupdf/PyMuPDF).
-
-# Community
-Join us on **Discord** here: [#pymupdf](https://discord.gg/TSpYGBW4eq).
-
-# License and Copyright
-**PyMuPDF** is available under [open-source AGPL](https://www.gnu.org/licenses/agpl-3.0.html) and commercial license agreements. If you determine you cannot meet the requirements of the **AGPL**, please contact [Artifex](https://artifex.com/contact/pymupdf-inquiry.php) for more information regarding a commercial license.
-
+    * A LlamaIndex document essentially corresponds to Python dictionary, where the markdown text of the page is one of the dictionary values. For instance the text of the first page is the the value of `data[0].to_dict().["text"]`.
+    * For details, please consult LlamaIndex documentation.
+    * Upon creation of the `LlamaMarkdownReader` all necessary LlamaIndex-related imports are executed. Required related package installations must have been done independently and will not be checked during pymupdf4llm installation.

@@ -1,12 +1,8 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-try:
-    import pymupdf as fitz  # available with v1.24.3
-except ImportError:
-    import fitz
-
-from fitz import Document as FitzDocument
+import pymupdf
+from pymupdf import Document as PymupdfDocument
 
 from pymupdf4llm import IdentifyHeaders, to_markdown
 
@@ -60,7 +56,7 @@ class PDFMarkdownReader(BaseReader):
         # extract text header information
         hdr_info = IdentifyHeaders(file_path)
 
-        doc: FitzDocument = fitz.open(file_path)
+        doc: PymupdfDocument = pymupdf.open(file_path)
         docs = []
 
         for page in doc:
@@ -76,7 +72,7 @@ class PDFMarkdownReader(BaseReader):
 
     def _process_doc_page(
         self,
-        doc: FitzDocument,
+        doc: PymupdfDocument,
         extra_info: Dict[str, Any],
         file_path: str,
         page_number: int,
@@ -97,7 +93,7 @@ class PDFMarkdownReader(BaseReader):
 
     def _process_doc_meta(
         self,
-        doc: FitzDocument,
+        doc: PymupdfDocument,
         file_path: Union[Path, str],
         page_number: int,
         extra_info: Optional[Dict] = None,
