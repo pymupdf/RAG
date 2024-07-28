@@ -171,8 +171,8 @@ Further Resources
 Sample code
 ~~~~~~~~~~~~~~~
 
-- `Command line RAG Chatbot with PyMuPDF <https://github.com/pymupdf/RAG/tree/main/country-capitals>`_
-- `Example of a Browser Application using Langchain and PyMuPDF <https://github.com/pymupdf/RAG/tree/main/GUI>`_
+- `Command line RAG Chatbot with PyMuPDF <https://github.com/pymupdf/RAG/tree/8c0f5009f3d121a9679445b7b551318d77dd967c/examples/country-capitals>`_
+- `Example of a Browser Application using Langchain and PyMuPDF <https://github.com/pymupdf/RAG/tree/8c0f5009f3d121a9679445b7b551318d77dd967c/examples/GUI>`_
 
 
 Blogs
