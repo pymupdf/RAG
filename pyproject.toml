@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pymupdf4llm"
-version = "0.0.10"
+version = "0.0.11"
 description = "PyMuPDF Utilities for LLM/RAG"
 authors = ["Artifex <support@artifex.com>"]
 license = "GNU AFFERO GPL 3.0"
@@ -28,7 +28,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pymupdf = ">=1.24.2"
+pymupdf = ">=1.24.3"
 
 [tool.poetry.group.dev]
 optional = true

@@ -18,7 +18,7 @@ the text in markdwn format as well.
 
 Dependencies
 -------------
-PyMuPDF v1.24.2 or later
+PyMuPDF v1.24.3 or later
 
 Copyright and License
 ----------------------
@@ -29,16 +29,10 @@ License GNU Affero GPL 3.0
 import os
 import string
 
-try:
-    import pymupdf as fitz  # available with v1.24.3
-except ImportError:
-    import fitz
+import pymupdf
 
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
-
-if fitz.pymupdf_version_tuple < (1, 24, 2):
-    raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
 bullet = (
     "- ",
@@ -67,10 +61,10 @@ class IdentifyHeaders:
             pages: optional list of pages to consider
             body_limit: consider text with larger font size as some header
         """
-        if isinstance(doc, fitz.Document):
+        if isinstance(doc, pymupdf.Document):
             mydoc = doc
         else:
-            mydoc = fitz.open(doc)
+            mydoc = pymupdf.open(doc)
 
         if pages is None:  # use all pages if omitted
             pages = range(mydoc.page_count)
@@ -78,7 +72,7 @@ class IdentifyHeaders:
         fontsizes = {}
         for pno in pages:
             page = mydoc.load_page(pno)
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
             for span in [  # look at all non-empty horizontal spans
                 s
                 for b in blocks
@@ -143,8 +137,8 @@ def poly_area(points):
 
     area = 0
     for i in range(len(points) - 1):
-        p0 = fitz.Point(points[i])
-        p1 = fitz.Point(points[i + 1])
+        p0 = pymupdf.Point(points[i])
+        p1 = pymupdf.Point(points[i + 1])
         area += p0.x * p1.y - p1.x * p0.y
     return abs(area) / 2
 
@@ -230,7 +224,7 @@ def to_markdown(
     """Process the document and return the text of the selected pages.
 
     Args:
-        doc: fitz.Document or string.
+        doc: pymupdf.Document or string.
         pages: list of page numbers to consider (0-based).
         hdr_info: callable or object having a method named 'get_hdr_info'.
         write_images: (bool) whether to save images / drawing as files.
@@ -255,8 +249,8 @@ def to_markdown(
         os.mkdir(IMG_PATH)
 
     GRAPHICS_LIMIT = graphics_limit
-    if not isinstance(doc, fitz.Document):
-        doc = fitz.open(doc)
+    if not isinstance(doc, pymupdf.Document):
+        doc = pymupdf.open(doc)
 
     # for reflowable documents allow making 1 page for the whole document
     if doc.is_reflowable:
@@ -304,7 +298,7 @@ def to_markdown(
         Returns:
             None or a string representing the link in MD format.
         """
-        bbox = fitz.Rect(span["bbox"])  # span bbox
+        bbox = pymupdf.Rect(span["bbox"])  # span bbox
         # a link should overlap at least 70% of the span
         for link in links:
             hot = link["from"]  # the hot area of the link
@@ -331,9 +325,9 @@ def to_markdown(
         return ""
 
     def write_text(
-        page: fitz.Page,
-        textpage: fitz.TextPage,
-        clip: fitz.Rect,
+        page: pymupdf.Page,
+        textpage: pymupdf.TextPage,
+        clip: pymupdf.Rect,
         tabs=None,
         tab_rects: dict = None,
         img_rects: dict = None,
@@ -614,7 +608,7 @@ def to_markdown(
         """Process one page.
 
         Args:
-            doc: fitz.Document
+            doc: pymupdf.Document
             pno: 0-based page number
             textflags: text extraction flag bits
 
@@ -636,7 +630,7 @@ def to_markdown(
         left, top, right, bottom = margins
         clip = page.rect + (left, top, -right, -bottom)
         # extract external links on page
-        links = [l for l in page.get_links() if l["kind"] == fitz.LINK_URI]
+        links = [l for l in page.get_links() if l["kind"] == pymupdf.LINK_URI]
 
         # make a TextPage for all later extractions
         textpage = page.get_textpage(flags=textflags, clip=clip)
@@ -645,14 +639,14 @@ def to_markdown(
         # ignore images contained in another one (simplified mechanism)
         img_info = page.get_image_info()[:]
         # sort descending by image area size
-        img_info.sort(key=lambda i: abs(fitz.Rect(i["bbox"])), reverse=True)
+        img_info.sort(key=lambda i: abs(pymupdf.Rect(i["bbox"])), reverse=True)
         # run from back to front (= small to large)
         for i in range(len(img_info) - 1, 0, -1):
             img1 = img_info[i]
             img0 = img_info[i - 1]
             if (
-                fitz.Rect(img1["bbox"]) & page.rect
-                in fitz.Rect(img0["bbox"]) & page.rect
+                pymupdf.Rect(img1["bbox"]) & page.rect
+                in pymupdf.Rect(img0["bbox"]) & page.rect
             ):
                 del img_info[i]  # contained in some larger image
         images = img_info
@@ -666,7 +660,7 @@ def to_markdown(
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
         for i, t in enumerate(tabs):
-            tab_rects[i] = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
             tab_dict = {
                 "bbox": tuple(tab_rects[i]),
                 "rows": t.row_count,
@@ -702,7 +696,7 @@ def to_markdown(
         actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters0)]
 
         # also add image rectangles to the list
-        vg_clusters0 += [fitz.Rect(i["bbox"]) for i in img_info]
+        vg_clusters0 += [pymupdf.Rect(i["bbox"]) for i in img_info]
 
         # these may no longer be pairwise disjoint:
         # remove area overlaps by joining into larger rects
@@ -758,7 +752,7 @@ def to_markdown(
 
     # read the Table of Contents
     toc = doc.get_toc()
-    textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
+    textflags = pymupdf.TEXT_MEDIABOX_CLIP | pymupdf.TEXT_CID_FOR_UNKNOWN_UNICODE
     for pno in pages:
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
@@ -797,7 +791,7 @@ if __name__ == "__main__":
 
     t0 = time.perf_counter()  # start a time
 
-    doc = fitz.open(filename)  # open input file
+    doc = pymupdf.open(filename)  # open input file
     parms = sys.argv[2:]  # contains ["-pages", "PAGES"] or empty list
     pages = range(doc.page_count)  # default page range
     if len(parms) == 2 and parms[0] == "-pages":  # page sub-selection given
