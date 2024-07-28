@@ -1,2 +1,17 @@
+### Build ###
 _build
 build
+dist
+pymupdf4llm.egg-info
+
+### IDE and OS ###
+.idea
+.vscode
+.DS_Store
+
+### Cache ###
+__pycache__
+*.py[cod]
+
+### Virtual Environment ###
+venv
