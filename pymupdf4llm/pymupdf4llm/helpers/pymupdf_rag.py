@@ -193,7 +193,7 @@ def is_significant(box, paths):
         for itm in p["items"]:
             if itm[0] in ("l", "c"):  # line or curve
                 points.extend(itm[1:])  # append all the points
-            elif itm[0] == "q":  # quad
+            elif itm[0] == "qu":  # quad
                 q = itm[1]
                 # follow corners anti-clockwise
                 points.extend([q.ul, q.ll, q.lr, q.ur, q.ul])
