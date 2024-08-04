@@ -226,7 +226,7 @@ def to_markdown(
     page_height=None,
     table_strategy="lines_strict",
     graphics_limit=None,
-    enable_code_blocks=False,
+    enable_code_blocks=True,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -830,7 +830,7 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    md_string = to_markdown(doc, pages=pages, enable_code_blocks=False)
+    md_string = to_markdown(doc, pages=pages, enable_code_blocks=True)
 
     # output to a text file with extension ".md"
     outname = doc.name.replace(".pdf", ".md")
