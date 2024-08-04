@@ -226,6 +226,7 @@ def to_markdown(
     page_height=None,
     table_strategy="lines_strict",
     graphics_limit=None,
+    enable_code_blocks=False,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -244,6 +245,7 @@ def to_markdown(
         page_height: (float) assumption if page layout is variable.
         table_strategy: choose table detection strategy
         graphics_limit: (int) ignore page with too many vector graphics.
+        enable_code_blocks: (bool) whether to enable code block formatting in the output.
 
     """
     if write_images is False and force_text is False:
@@ -339,6 +341,7 @@ def to_markdown(
         img_rects: dict = None,
         links: list = None,
         force_text=force_text,
+        enable_code_blocks=enable_code_blocks,
     ) -> string:
         """Output the text found inside the given clip.
 
@@ -418,6 +421,7 @@ def to_markdown(
                         img_rects={},
                         links=links,
                         force_text=True,
+                        enable_code_blocks=enable_code_blocks,
                     )
 
                     if not is_white(img_txt):
@@ -426,20 +430,25 @@ def to_markdown(
 
             text = " ".join([s["text"] for s in spans])
 
-            # if the full line mono-spaced?
-            all_mono = all([s["flags"] & 8 for s in spans])
+            if enable_code_blocks:
+                # if the full line mono-spaced?
+                all_mono = all([s["flags"] & 8 for s in spans])
 
-            if all_mono:
-                if not code:  # if not already in code output  mode:
-                    out_string += "```\n"  # switch on "code" mode
-                    code = True
-                # compute approx. distance from left - assuming a width
-                # of 0.5*fontsize.
-                delta = int((lrect.x0 - clip.x0) / (spans[0]["size"] * 0.5))
-                indent = " " * delta
+                if all_mono:
+                    if not code:  # if not already in code output  mode:
+                        out_string += "```\n"  # switch on "code" mode
+                        code = True
+                    # compute approx. distance from left - assuming a width
+                    # of 0.5*fontsize.
+                    delta = int((lrect.x0 - clip.x0) / (spans[0]["size"] * 0.5))
+                    indent = " " * delta
 
-                out_string += indent + text + "\n"
-                continue  # done with this line
+                    out_string += indent + text + "\n"
+                    continue  # done with this line
+            else :
+                all_mono = False
+                out_string += text + "\n"
+                continue
 
             span0 = spans[0]
             bno = span0["block"]  # block number of line
@@ -573,6 +582,7 @@ def to_markdown(
                         img_rects={},  # we have no other images here
                         links=[],  # rely on explicit HTML syntax
                         force_text=True,
+                        enable_code_blocks=enable_code_blocks,
                     )
                     if not is_white(img_txt):  # was there text at all?
                         this_md += img_txt
@@ -597,6 +607,7 @@ def to_markdown(
                         img_rects={},  # we have no other images here
                         links=[],  # rely on explicit HTML syntax
                         force_text=True,
+                        enable_code_blocks=enable_code_blocks,
                     )
                     if not is_white(img_txt):
                         this_md += img_txt
@@ -740,6 +751,7 @@ def to_markdown(
                 img_rects=vg_clusters,
                 links=links,
                 force_text=force_text,
+                enable_code_blocks=enable_code_blocks,
             )
 
         md_string = md_string.replace(" ,", ",").replace("-\n", "")
@@ -818,7 +830,7 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    md_string = to_markdown(doc, pages=pages)
+    md_string = to_markdown(doc, pages=pages, enable_code_blocks=False)
 
     # output to a text file with extension ".md"
     outname = doc.name.replace(".pdf", ".md")
