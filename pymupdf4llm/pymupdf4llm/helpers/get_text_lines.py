@@ -69,7 +69,9 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         Returns:
             A list of sorted, and potentially cleaned-up spans
         """
-        line.sort(key=lambda s: s["bbox"].x0)  # sort left to right
+        # sort ascending horizontally
+        line.sort(key=lambda s: s["bbox"].x0)
+        # join spans, delete duplicates
         for i in range(len(line) - 1, 0, -1):  # iterate back to front
             s0 = line[i - 1]
             s1 = line[i]
@@ -78,13 +80,17 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
             delta = s1["size"] * 0.1
             if s0["bbox"].x1 + delta < s1["bbox"].x0:
                 continue  # all good: no joining neded
+
+            # We need to join bbox and text of two consecutive spans
+            # On occasion, spans may also be duplicated.
+            if s0["text"] != s1["text"] or s0["bbox"] != s1["bbox"]:
+                s0["text"] += s1["text"]
             s0["bbox"] |= s1["bbox"]  # join boundary boxes
-            s0["text"] += s1["text"]  # join the text
             del line[i]  # delete the joined-in span
             line[i - 1] = s0  # update the span
         return line
 
-    if clip is None:  # use TextPage if not provided
+    if clip is None:  # use TextPage rect if not provided
         clip = textpage.rect
     # extract text blocks - if bbox is not empty
     blocks = [
@@ -126,10 +132,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         sbbox = s["bbox"]  # this bbox
         sbbox0 = line[-1]["bbox"]  # previous bbox
         # if any of top or bottom coordinates are close enough, join...
-        if (
-            abs(sbbox.y1 - sbbox0.y1) <= y_delta
-            or abs(sbbox.y0 - sbbox0.y0) <= y_delta
-        ):
+        if abs(sbbox.y1 - sbbox0.y1) <= y_delta or abs(sbbox.y0 - sbbox0.y0) <= y_delta:
             line.append(s)  # append to this line
             lrect |= sbbox  # extend line rectangle
             continue
@@ -150,9 +153,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     return nlines
 
 
-def get_text_lines(
-    page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False
-):
+def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False):
     """Extract text by line keeping natural reading sequence.
 
     Notes:
