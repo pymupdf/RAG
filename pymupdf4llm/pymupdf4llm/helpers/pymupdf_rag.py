@@ -40,14 +40,17 @@ from pymupdf4llm.helpers.multi_column import column_boxes
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
-bullet = [
-    "- ",
-    "* ",
-    chr(0xF0A7),
-    chr(0xF0B7),
-    chr(0xB7),
-    chr(8226),
-] + list(map(chr, range(9642, 9680)))
+bullet = tuple(
+    [
+        "- ",
+        "* ",
+        chr(0xF0A7),
+        chr(0xF0B7),
+        chr(0xB7),
+        chr(8226),
+    ]
+    + list(map(chr, range(9642, 9680)))
+)
 
 GRAPHICS_TEXT = "\n![](%s)\n"
 
