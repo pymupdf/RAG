@@ -40,14 +40,14 @@ from pymupdf4llm.helpers.multi_column import column_boxes
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
 
-bullet = [
+bullet = tuple([
     "- ",
     "* ",
     chr(0xF0A7),
     chr(0xF0B7),
     chr(0xB7),
     chr(8226),
-] + list(map(chr, range(9642, 9680)))
+] + list(map(chr, range(9642, 9680))))
 
 GRAPHICS_TEXT = "\n![](%s)\n"
 
@@ -289,7 +289,7 @@ def to_markdown(
     elif hasattr(hdr_info, "get_header_id") and callable(hdr_info.get_header_id):
         get_header_id = hdr_info.get_header_id
     elif hdr_info is False:
-        get_header_id = lambda s, page=None: ""
+        def get_header_id(s, page=None): return ""
     else:
         hdr_info = IdentifyHeaders(doc)
         get_header_id = hdr_info.get_header_id
@@ -500,7 +500,8 @@ def to_markdown(
                     if ltext:
                         text = f"{hdr_string}{prefix}{ltext}{suffix} "
                     else:
-                        text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
+                        text = f"{hdr_string}{prefix}{
+                            s['text'].strip()}{suffix} "
 
                     if text.startswith(bullet):
                         text = "-  " + text[1:]
@@ -513,7 +514,8 @@ def to_markdown(
             code = False
 
         return (
-            out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
+            out_string.replace(" \n", "\n").replace(
+                "  ", " ").replace("\n\n\n", "\n\n")
         )
 
     def is_in_rects(rect, rect_list):
@@ -629,7 +631,8 @@ def to_markdown(
             test_paths = page.get_cdrawings()
             if (excess := len(test_paths)) > GRAPHICS_LIMIT:
                 md_string = (
-                    f"\n**Ignoring page {page.number} with {excess} vector graphics.**"
+                    f"\n**Ignoring page {page.number} with {
+                        excess} vector graphics.**"
                 )
                 md_string += "\n\n-----\n\n"
                 return md_string, [], [], []
@@ -699,7 +702,8 @@ def to_markdown(
                 vg_clusters0.append(bbox)
 
         # remove paths that are not in some relevant graphic
-        actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters0)]
+        actual_paths = [p for p in paths if is_in_rects(
+            p["rect"], vg_clusters0)]
 
         # also add image rectangles to the list
         vg_clusters0 += [fitz.Rect(i["bbox"]) for i in img_info]
@@ -824,4 +828,4 @@ if __name__ == "__main__":
     outname = doc.name.replace(".pdf", ".md")
     pathlib.Path(outname).write_bytes(md_string.encode())
     t1 = time.perf_counter()  # stop timer
-    print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
+    print(f"Markdown creation time for {doc.name=} {round(t1-t0, 2)} sec.")
