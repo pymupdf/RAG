@@ -229,6 +229,7 @@ def to_markdown(
     page_height=None,
     table_strategy="lines_strict",
     graphics_limit=None,
+    show_progress=False,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -247,6 +248,7 @@ def to_markdown(
         page_height: (float) assumption if page layout is variable.
         table_strategy: choose table detection strategy
         graphics_limit: (int) ignore page with too many vector graphics.
+        show_progress: (bool) print progress as each page is processed.
 
     """
     if write_images is False and force_text is False:
@@ -763,6 +765,8 @@ def to_markdown(
     toc = doc.get_toc()
     textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
     for pno in pages:
+        print(f"Processing page {pno} of {len(pages)}...", end=" ", flush=True)
+
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
         )
@@ -783,6 +787,8 @@ def to_markdown(
                     "text": page_output,
                 }
             )
+        
+        print("Processed!")
 
     return document_output
 
