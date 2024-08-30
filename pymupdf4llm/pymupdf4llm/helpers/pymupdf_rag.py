@@ -765,7 +765,8 @@ def to_markdown(
     toc = doc.get_toc()
     textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
     for pno in pages:
-        print(f"Processing page {pno} of {len(pages)}...", end=" ", flush=True)
+        if show_progress:
+            print(f"Processing page {pno} of {len(pages)}...", end=" ", flush=True)
 
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
@@ -788,7 +789,8 @@ def to_markdown(
                 }
             )
         
-        print("Processed!")
+        if show_progress:
+            print("Processed!")
 
     return document_output
 
