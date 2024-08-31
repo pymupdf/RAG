@@ -28,6 +28,7 @@ License GNU Affero GPL 3.0
 
 import os
 import string
+from tqdm import tqdm
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -764,10 +765,10 @@ def to_markdown(
     # read the Table of Contents
     toc = doc.get_toc()
     textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
+    if show_progress:
+        print(f"Processing {doc.name}...")
+        pages = tqdm(pages)
     for pno in pages:
-        if show_progress:
-            print(f"Processing page {pno} of {len(pages)}...", end=" ", flush=True)
-
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
         )
@@ -788,9 +789,6 @@ def to_markdown(
                     "text": page_output,
                 }
             )
-        
-        if show_progress:
-            print("Processed!")
 
     return document_output
 
