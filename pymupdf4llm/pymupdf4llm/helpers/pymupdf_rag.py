@@ -28,7 +28,6 @@ License GNU Affero GPL 3.0
 
 import os
 import string
-from tqdm import tqdm
 
 try:
     import pymupdf as fitz  # available with v1.24.3
@@ -37,6 +36,7 @@ except ImportError:
 
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.progress import ProgressBar
 
 if fitz.pymupdf_version_tuple < (1, 24, 2):
     raise NotImplementedError("PyMuPDF version 1.24.2 or later is needed.")
@@ -767,7 +767,7 @@ def to_markdown(
     textflags = fitz.TEXT_MEDIABOX_CLIP | fitz.TEXT_CID_FOR_UNKNOWN_UNICODE
     if show_progress:
         print(f"Processing {doc.name}...")
-        pages = tqdm(pages)
+        pages = ProgressBar(pages)
     for pno in pages:
         page_output, images, tables, graphics = get_page_output(
             doc, pno, margins, textflags
