@@ -15,10 +15,7 @@ License GNU Affero GPL 3.0
 import string
 import sys
 
-try:
-    import pymupdf as fitz  # available with v1.24.3
-except ImportError:
-    import fitz
+import pymupdf
 
 WHITE = set(string.whitespace)
 
@@ -96,13 +93,13 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     blocks = [
         b
         for b in textpage.extractDICT()["blocks"]
-        if b["type"] == 0 and not fitz.Rect(b["bbox"]).is_empty
+        if b["type"] == 0 and not pymupdf.Rect(b["bbox"]).is_empty
     ]
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):  # the numbered blocks
         for lno, line in enumerate(b["lines"]):  # the numbered lines
             for sno, s in enumerate(line["spans"]):  # the numered spans
-                sbbox = fitz.Rect(s["bbox"])  # span bbox as a Rect
+                sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
                 mpoint = (sbbox.tl + sbbox.br) / 2  # middle point
                 if mpoint not in clip:
                     continue
@@ -165,16 +162,16 @@ def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr
         cases of text replaced by way of redaction annotations.
 
     Args:
-        page: (fitz.Page)
+        page: (pymupdf.Page)
         textpage: (TextPage) if None a temporary one is created.
         clip: (rect-like) only consider spans inside this area
         sep: (str) use this string when joining multiple MuPDF lines.
     Returns:
         String of plain text in reading sequence.
     """
-    textflags = fitz.TEXT_MEDIABOX_CLIP
+    textflags = pymupdf.TEXT_MEDIABOX_CLIP
     page.remove_rotation()
-    prect = page.rect if not clip else fitz.Rect(clip)  # area to consider
+    prect = page.rect if not clip else pymupdf.Rect(clip)  # area to consider
 
     xsep = sep if sep == "|" else ""
 
@@ -255,7 +252,7 @@ if __name__ == "__main__":
     import pathlib
 
     filename = sys.argv[1]
-    doc = fitz.open(filename)
+    doc = pymupdf.open(filename)
     text = ""
     for page in doc:
         text += get_text_lines(page, sep=" ") + "\n" + chr(12) + "\n"

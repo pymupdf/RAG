@@ -4,6 +4,22 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.13
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `112 <https://github.com/pymupdf/RAG/issues/112>`_ "Invalid bandwriter header dimensions/setup"
+
+
+Improvements:
+~~~~~~~~~~~~~~
+* New parameter `ignore_code` suppresses special formatting of text in mono-spaced fonts.
+* New parameter `extract_words` enforces `page_chunks=True` and adds a "words" list to each page dictionary.
+
+
+
 Changes in version 0.0.11
 --------------------------
 
