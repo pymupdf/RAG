@@ -227,7 +227,7 @@ def to_markdown(
     graphics_limit=None,
     ignore_code=False,
     extract_words=False,
-    show_progress=False,
+    show_progress=True,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
