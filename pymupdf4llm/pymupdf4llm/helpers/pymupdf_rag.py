@@ -33,6 +33,7 @@ import pymupdf
 
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.progress import ProgressBar
 
 bullet = tuple(
     [
