@@ -33,6 +33,7 @@ import pymupdf
 
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.progress import ProgressBar
 
 bullet = tuple(
     [
@@ -227,6 +228,7 @@ def to_markdown(
     graphics_limit=None,
     ignore_code=False,
     extract_words=False,
+    show_progress=True,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -245,6 +247,7 @@ def to_markdown(
         page_height: (float) assumption if page layout is variable.
         table_strategy: choose table detection strategy
         graphics_limit: (int) ignore page with too many vector graphics.
+        show_progress: (bool) print progress as each page is processed.
 
     """
     if write_images is False and force_text is False:
@@ -795,6 +798,9 @@ def to_markdown(
     # read the Table of Contents
     toc = doc.get_toc()
     textflags = pymupdf.TEXT_MEDIABOX_CLIP
+    if show_progress:
+        print(f"Processing {doc.name}...")
+        pages = ProgressBar(pages)
     for pno in pages:
         page_output, images, tables, graphics, words = get_page_output(
             doc, pno, margins, textflags
