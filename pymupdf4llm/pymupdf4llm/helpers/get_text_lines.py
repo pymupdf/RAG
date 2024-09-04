@@ -98,6 +98,8 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):  # the numbered blocks
         for lno, line in enumerate(b["lines"]):  # the numbered lines
+            if abs(1-line["dir"][0]) > 1e-3:  # only accept horizontal text
+                continue
             for sno, s in enumerate(line["spans"]):  # the numered spans
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
                 mpoint = (sbbox.tl + sbbox.br) / 2  # middle point
