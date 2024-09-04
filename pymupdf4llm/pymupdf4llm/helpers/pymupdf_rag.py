@@ -15,10 +15,10 @@ It will produce a markdown text file called "input.md".
 
 Text will be sorted in Western reading order. Any table will be included in
 the text in markdwn format as well.
-
+ 
 Dependencies
 -------------
-PyMuPDF v1.24.2 or later
+PyMuPDF v1.24.3 or later
 
 Copyright and License
 ----------------------
@@ -247,6 +247,8 @@ def to_markdown(
         page_height: (float) assumption if page layout is variable.
         table_strategy: choose table detection strategy
         graphics_limit: (int) ignore page with too many vector graphics.
+        ignore_code: (bool) suppress extra formatting for mono-space fonts
+        extract_words: (bool) include "words"-like output in page chunks
         show_progress: (bool) print progress as each page is processed.
 
     """
@@ -403,6 +405,13 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 out_string += "\n" + tabs[i].to_markdown(clean=False) + "\n"
+                if EXTRACT_WORDS:  # determine raw line rects within this table
+                    line_rects.extend(
+                        [
+                            pymupdf.Rect(rl[0])
+                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
+                        ]
+                    )
                 del tab_rects[i]
 
             # ------------------------------------------------------------
@@ -548,7 +557,7 @@ def to_markdown(
                 return i
         return 0
 
-    def output_tables(tabs, text_rect, tab_rects):
+    def output_tables(tabs, text_rect, tab_rects, line_rects, textpage):
         """Output tables above a text rectangle."""
         this_md = ""  # markdown string for table content
         if text_rect is not None:  # select tables above the text block
@@ -557,6 +566,13 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
+                if EXTRACT_WORDS:  # determine raw line rects within this table
+                    line_rects.extend(
+                        [
+                            pymupdf.Rect(rl[0])
+                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
+                        ]
+                    )
                 del tab_rects[i]  # do not touch this table twice
 
         else:  # output all remaining table
@@ -565,6 +581,13 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
+                if EXTRACT_WORDS:  # determine raw line rects within this table
+                    line_rects.extend(
+                        [
+                            pymupdf.Rect(rl[0])
+                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
+                        ]
+                    )
                 del tab_rects[i]  # do not touch this table twice
         return this_md
 
@@ -748,7 +771,7 @@ def to_markdown(
         """
         for text_rect in text_rects:
             # output tables above this block of text
-            md_string += output_tables(tabs, text_rect, tab_rects)
+            md_string += output_tables(tabs, text_rect, tab_rects, line_rects, textpage)
             md_string += output_images(
                 page, textpage, text_rect, vg_clusters, line_rects
             )
@@ -768,13 +791,15 @@ def to_markdown(
 
         md_string = md_string.replace(" ,", ",").replace("-\n", "")
         # write any remaining tables and images
-        md_string += output_tables(tabs, None, tab_rects)
+        md_string += output_tables(tabs, None, tab_rects, line_rects, textpage)
         md_string += output_images(page, textpage, None, vg_clusters, line_rects)
         md_string += "\n-----\n\n"
         while md_string.startswith("\n"):
             md_string = md_string[1:]
         md_string = md_string.replace(chr(0), chr(0xFFFD))
+
         if EXTRACT_WORDS is True:
+            # output words in sequence compliant with Markdown text
             rawwords = textpage.extractWORDS()
             words = []
             for lrect in line_rects:
@@ -782,10 +807,20 @@ def to_markdown(
                 for w in rawwords:
                     wrect = pymupdf.Rect(w[:4])
                     if wrect in lrect:
-                        wrect.y0 = lrect.y0
-                        wrect.y1 = lrect.y1
+                        wrect.y0 = lrect.y0  # set upper coord to line
+                        wrect.y1 = lrect.y1  # set lower coord to line
                         lwords.append(list(wrect) + list(w[4:]))
+                # append sorted words of this line
                 words.extend(sorted(lwords, key=lambda w: w[0]))
+
+            # remove word duplicates without spoiling the sequence
+            # duplicates may occur for multiple reasons
+            nwords = []  # words w/o duplicates
+            for w in words:
+                if w not in nwords:
+                    nwords.append(w)
+            words = nwords
+
         else:
             words = []
         return md_string, images, tables, graphics, words

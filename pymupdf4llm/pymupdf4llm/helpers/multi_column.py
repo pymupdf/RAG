@@ -152,9 +152,11 @@ def column_boxes(
     def join_rects_phase1(bboxes):
         """Postprocess identified text blocks, phase 1.
 
-        Joins any rectangles that "touch" each other. This means that
-        their intersection is valid (but may be empty).
+        Joins any rectangles that "touch" each other.
+        This means that their intersection is valid (but may be empty).
+        To prefer vertical joins, we will ignore small horizontal gaps.
         """
+        delta=(0,-3,0,3)  # allow thid gap above and below
         prects = bboxes[:]
         new_rects = []
         while prects:
@@ -163,7 +165,7 @@ def column_boxes(
             while repeat:
                 repeat = False
                 for i in range(len(prects) - 1, 0, -1):
-                    if (prect0 & prects[i]).is_valid:
+                    if ((prect0+delta) & (prects[i]+delta)).is_valid:
                         prect0 |= prects[i]
                         del prects[i]
                         repeat = True
