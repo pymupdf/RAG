@@ -362,6 +362,7 @@ def to_markdown(
             image_filename = os.path.join(
                 IMG_PATH, f"{filename}-{page.number}-{i}.{IMG_EXTENSION}"
             )
+            pix.save(image_filename)
             return image_filename.replace("\\", "/")
         elif embed_images is True:
             # make a bas64 encoded string of the image
