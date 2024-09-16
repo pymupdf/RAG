@@ -28,9 +28,8 @@ License GNU Affero GPL 3.0
 
 import os
 import string
-
+from binascii import b2a_base64
 import pymupdf
-
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
 from pymupdf4llm.helpers.progress import ProgressBar
@@ -106,13 +105,13 @@ class IdentifyHeaders:
             reverse=True,
         )
         if temp:
-            b_limit = max(body_limit, temp[0][0])
+            self.body_limit = min(body_limit, temp[0][0])
         else:
-            b_limit = body_limit
+            self.body_limit = body_limit
 
         # identify up to 6 font sizes as header candidates
         sizes = sorted(
-            [f for f in fontsizes.keys() if f > b_limit],
+            [f for f in fontsizes.keys() if f > self.body_limit],
             reverse=True,
         )[:6]
 
@@ -128,6 +127,8 @@ class IdentifyHeaders:
         """
         fontsize = round(span["size"])  # compute fontsize
         hdr_id = self.header_id.get(fontsize, "")
+        if not hdr_id and fontsize > self.body_limit:
+            hdr_id = "###### "
         return hdr_id
 
 
@@ -136,15 +137,17 @@ def poly_area(points):
 
     We are using the "shoelace" algorithm (Gauss) for this.
     """
+    # make a local copy of points (avoid changing the original)
+    pts = points[:]
     # remove duplicated connector points first
-    for i in range(len(points) - 1, 0, -1):
-        if points[i] == points[i - 1]:
-            del points[i]
+    for i in range(len(pts) - 1, 0, -1):
+        if pts[i] == pts[i - 1]:
+            del pts[i]
 
     area = 0
-    for i in range(len(points) - 1):
-        p0 = pymupdf.Point(points[i])
-        p1 = pymupdf.Point(points[i + 1])
+    for i in range(len(pts) - 1):
+        p0 = pymupdf.Point(pts[i])
+        p1 = pymupdf.Point(pts[i + 1])
         area += p0.x * p1.y - p1.x * p0.y
     return abs(area) / 2
 
@@ -177,7 +180,7 @@ def is_significant(box, paths):
     """Check whether the rectangle "box" contains 'signifiant' drawings.
 
     For this to be true, at least one path must cover an area,
-    which is less than 90% of box. Otherwise we assume
+    which is smaller than 90% of box. Otherwise we assume
     that the graphic is decoration (highlighting, border-only etc.).
     """
     box_area = abs(box) * 0.9  # 90% of area of box
@@ -216,8 +219,10 @@ def to_markdown(
     pages: list = None,
     hdr_info=None,
     write_images=False,
+    embed_images=False,
     image_path="",
     image_format="png",
+    image_size_limit=0.05,
     force_text=True,
     page_chunks=False,
     margins=(0, 50, 0, 50),
@@ -226,6 +231,7 @@ def to_markdown(
     page_height=None,
     table_strategy="lines_strict",
     graphics_limit=None,
+    fontsize_limit=3,
     ignore_code=False,
     extract_words=False,
     show_progress=True,
@@ -237,6 +243,7 @@ def to_markdown(
         pages: list of page numbers to consider (0-based).
         hdr_info: callable or object having a method named 'get_hdr_info'.
         write_images: (bool) whether to save images / drawing as files.
+        embed_images: (bool) embed images as base64 encoded strings
         image_path: (str) folder into which images should be stored.
         image_format: (str) desired image format. Choose a supported one.
         force_text: (bool) output text despite of background.
@@ -252,19 +259,27 @@ def to_markdown(
         show_progress: (bool) print progress as each page is processed.
 
     """
-    if write_images is False and force_text is False:
-        raise ValueError("Image and text output cannot both be suppressed.")
+    if write_images is False and embed_images is False and force_text is False:
+        raise ValueError("Image and text on images cannot both be suppressed.")
+    if embed_images is True:
+        write_images = False
+        image_path = ""
+    if not 0 < image_size_limit < 1:
+        raise ValueError("'image_size_limit' must be positive and less than 1.")
     DPI = dpi
     IGNORE_CODE = ignore_code
     IMG_EXTENSION = image_format
     EXTRACT_WORDS = extract_words
     if EXTRACT_WORDS is True:
         page_chunks = True
+        ignore_code = True
     IMG_PATH = image_path
     if IMG_PATH and write_images is True and not os.path.exists(IMG_PATH):
         os.mkdir(IMG_PATH)
 
     GRAPHICS_LIMIT = graphics_limit
+    FONTSIZE_LIMIT = fontsize_limit
+
     if not isinstance(doc, pymupdf.Document):
         doc = pymupdf.open(doc)
 
@@ -327,19 +342,32 @@ def to_markdown(
     def save_image(page, rect, i):
         """Optionally render the rect part of a page.
 
-        We will always ignore images with an edge smaller than 5%
-        of the corresponding page edge."""
-        if rect.width < page.rect.width * 0.05 or rect.height < page.rect.height * 0.05:
+        We will ignore images that are empty or that have an edge smaller
+        than x% of the corresponding page edge."""
+
+        if (
+            rect.width < page.rect.width * image_size_limit
+            or rect.height < page.rect.height * image_size_limit
+        ):
             return ""
-        filename = os.path.basename(page.parent.name)
-        image_filename = os.path.join(
-            image_path, f"{filename}-{page.number}-{i}.{IMG_EXTENSION}"
-        )
-        if write_images is True:
+        if write_images is True or embed_images is True:
             pix = page.get_pixmap(clip=rect, dpi=DPI)
-            if pix.height > 0 and pix.width > 0:
-                pix.save(image_filename)
-                return image_filename.replace("\\", "/")
+        else:
+            return ""
+        if pix.height <= 0 or pix.width <= 0:
+            return ""
+
+        if write_images is True:
+            filename = os.path.basename(page.parent.name).replace(" ", "-")
+            image_filename = os.path.join(
+                IMG_PATH, f"{filename}-{page.number}-{i}.{IMG_EXTENSION}"
+            )
+            return image_filename.replace("\\", "/")
+        elif embed_images is True:
+            # make a bas64 encoded string of the image
+            data = b2a_base64(pix.tobytes(IMG_EXTENSION)).decode()
+            data = f"data:image/{IMG_EXTENSION};base64," + data
+            return data
         return ""
 
     def write_text(
@@ -380,6 +408,9 @@ def to_markdown(
 
         tab_rects0 = list(tab_rects.values())
         img_rects0 = list(img_rects.values())
+        line_rects.extend(
+            [l[0] for l in nlines if not intersects_rects(l[0], tab_rects0)]
+        )  # store line rectangles
 
         prev_lrect = None  # previous line rectangle
         prev_bno = -1  # previous block number of line
@@ -405,13 +436,19 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 out_string += "\n" + tabs[i].to_markdown(clean=False) + "\n"
-                if EXTRACT_WORDS:  # determine raw line rects within this table
-                    line_rects.extend(
-                        [
-                            pymupdf.Rect(rl[0])
-                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
-                        ]
+                if EXTRACT_WORDS:
+                    # for "words" extraction, add table cells as line rects
+                    cells = sorted(
+                        set(
+                            [
+                                pymupdf.Rect(c)
+                                for c in tabs[i].header.cells + tabs[i].cells
+                                if c is not None
+                            ]
+                        ),
+                        key=lambda c: (c.y1, c.x0),
                     )
+                    line_rects.extend(cells)
                 del tab_rects[i]
 
             # ------------------------------------------------------------
@@ -566,28 +603,40 @@ def to_markdown(
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
-                if EXTRACT_WORDS:  # determine raw line rects within this table
-                    line_rects.extend(
-                        [
-                            pymupdf.Rect(rl[0])
-                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
-                        ]
+                if EXTRACT_WORDS:
+                    # for "words" extraction, add table cells as line rects
+                    cells = sorted(
+                        set(
+                            [
+                                pymupdf.Rect(c)
+                                for c in tabs[i].header.cells + tabs[i].cells
+                                if c is not None
+                            ]
+                        ),
+                        key=lambda c: (c.y1, c.x0),
                     )
+                    line_rects.extend(cells)
                 del tab_rects[i]  # do not touch this table twice
 
-        else:  # output all remaining table
+        else:  # output all remaining tables
             for i, trect in sorted(
                 tab_rects.items(),
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += tabs[i].to_markdown(clean=False)
-                if EXTRACT_WORDS:  # determine raw line rects within this table
-                    line_rects.extend(
-                        [
-                            pymupdf.Rect(rl[0])
-                            for rl in get_raw_lines(textpage, clip=tab_rects[i])
-                        ]
+                if EXTRACT_WORDS:
+                    # for "words" extraction, add table cells as line rects
+                    cells = sorted(
+                        set(
+                            [
+                                pymupdf.Rect(c)
+                                for c in tabs[i].header.cells + tabs[i].cells
+                                if c is not None
+                            ]
+                        ),
+                        key=lambda c: (c.y1, c.x0),
                     )
+                    line_rects.extend(cells)
                 del tab_rects[i]  # do not touch this table twice
         return this_md
 
@@ -652,6 +701,23 @@ def to_markdown(
         meta["page_count"] = doc.page_count
         meta["page"] = pno + 1
         return meta
+
+    def sort_words(words):
+        nwords = []
+        line = [words[0]]
+        lrect = pymupdf.Rect(words[0][:4])
+        for w in words[1:]:
+            if abs(w[1] - lrect.y0) <= 3 or abs(w[3] - lrect.y1) <= 3:
+                line.append(w)
+                lrect |= w[:4]
+            else:
+                line.sort(key=lambda w: w[0])
+                nwords.extend(line)
+                line = [w]
+                lrect = pymupdf.Rect(w[:4])
+        line.sort(key=lambda w: w[0])
+        nwords.extend(line)
+        return nwords
 
     def get_page_output(doc, pno, margins, textflags):
         """Process one page.
@@ -801,17 +867,17 @@ def to_markdown(
         if EXTRACT_WORDS is True:
             # output words in sequence compliant with Markdown text
             rawwords = textpage.extractWORDS()
+            rawwords.sort(key=lambda w: (w[3], w[0]))
             words = []
             for lrect in line_rects:
                 lwords = []
                 for w in rawwords:
                     wrect = pymupdf.Rect(w[:4])
                     if wrect in lrect:
-                        wrect.y0 = lrect.y0  # set upper coord to line
-                        wrect.y1 = lrect.y1  # set lower coord to line
-                        lwords.append(list(wrect) + list(w[4:]))
+                        lwords.append(w)
                 # append sorted words of this line
-                words.extend(sorted(lwords, key=lambda w: w[0]))
+                # words.extend(sorted(lwords, key=lambda w: w[0]))
+                words.extend(sort_words(lwords))
 
             # remove word duplicates without spoiling the sequence
             # duplicates may occur for multiple reasons

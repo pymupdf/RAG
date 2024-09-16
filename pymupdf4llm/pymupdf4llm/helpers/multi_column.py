@@ -64,6 +64,8 @@ import string
 
 import pymupdf
 
+pymupdf.TOOLS.set_small_glyph_heights(True)
+
 
 def column_boxes(
     page,
@@ -91,36 +93,11 @@ def column_boxes(
         """Check for relevant text."""
         return WHITE.issuperset(text)
 
-    # compute relevant page area
-    clip = +page.rect
-    clip.y1 -= footer_margin  # Remove footer area
-    clip.y0 += header_margin  # Remove header area
-
-    if paths is None:
-        paths = page.get_drawings()
-
-    if textpage is None:
-        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
-
-    bboxes = []
-
-    # path rectangles
-    path_rects = []
-
-    # image bboxes
-    img_bboxes = []
-    if avoid is not None:
-        img_bboxes.extend(avoid)
-
-    # bboxes of non-horizontal text
-    # avoid when expanding horizontal text boxes
-    vert_bboxes = []
-
     def in_bbox(bb, bboxes):
         """Return 1-based number if a bbox contains bb, else return 0."""
-        for i, bbox in enumerate(bboxes):
+        for i, bbox in enumerate(bboxes, start=1):
             if bb in bbox:
-                return i + 1
+                return i
         return 0
 
     def intersects_bboxes(bb, bboxes):
@@ -132,7 +109,8 @@ def column_boxes(
 
     def can_extend(temp, bb, bboxlist, vert_bboxes):
         """Determines whether rectangle 'temp' can be extended by 'bb'
-        without intersecting any of the rectangles contained in 'bboxlist'.
+        without intersecting any of the rectangles contained in 'bboxlist'
+        or 'vert_bboxes'.
 
         Items of bboxlist may be None if they have been removed.
 
@@ -148,6 +126,42 @@ def column_boxes(
 
         return True
 
+    def clean_nblocks(nblocks):
+        """Do some elementary cleaning."""
+
+        # 1. remove any duplicate blocks.
+        blen = len(nblocks)
+        if blen < 2:
+            return nblocks
+        start = blen - 1
+        for i in range(start, -1, -1):
+            bb1 = nblocks[i]
+            bb0 = nblocks[i - 1]
+            if bb0 == bb1:
+                del nblocks[i]
+
+        # 2. repair sequence in special cases:
+        # consecutive bboxes with almost same bottom value are sorted ascending
+        # by x-coordinate.
+        y1 = nblocks[0].y1  # first bottom coordinate
+        i0 = 0  # its index
+        i1 = -1  # index of last bbox with same bottom
+
+        # Iterate over bboxes, identifying segments with approx. same bottom value.
+        # Replace every segment by its sorted version.
+        for i in range(1, len(nblocks)):
+            b1 = nblocks[i]
+            if abs(b1.y1 - y1) > 3:  # different bottom
+                if i1 > i0:  # segment length > 1? Sort it!
+                    nblocks[i0 : i1 + 1] = sorted(
+                        nblocks[i0 : i1 + 1], key=lambda b: b.x0
+                    )
+                y1 = b1.y1  # store new bottom value
+                i0 = i  # store its start index
+            i1 = i  # store current index
+        if i1 > i0:  # segment waiting to be sorted
+            nblocks[i0 : i1 + 1] = sorted(nblocks[i0 : i1 + 1], key=lambda b: b.x0)
+        return nblocks
 
     def join_rects_phase1(bboxes):
         """Postprocess identified text blocks, phase 1.
@@ -156,7 +170,7 @@ def column_boxes(
         This means that their intersection is valid (but may be empty).
         To prefer vertical joins, we will ignore small horizontal gaps.
         """
-        delta=(0,-3,0,3)  # allow thid gap above and below
+        delta = (0, 0, 0, 2)  # allow this gap below
         prects = bboxes[:]
         new_rects = []
         while prects:
@@ -165,7 +179,7 @@ def column_boxes(
             while repeat:
                 repeat = False
                 for i in range(len(prects) - 1, 0, -1):
-                    if ((prect0+delta) & (prects[i]+delta)).is_valid:
+                    if not ((prect0 + delta) & prects[i]).is_empty:
                         prect0 |= prects[i]
                         del prects[i]
                         repeat = True
@@ -211,10 +225,10 @@ def column_boxes(
             new_rects.append(r)
         return new_rects
 
-    def join_rects_phase3(bboxes):
+    def join_rects_phase3(bboxes, path_rects):
         prects = bboxes[:]
-        prects.sort(key=lambda b: (b.x0, b.y0))
         new_rects = []
+
         while prects:
             prect0 = prects[0]
             repeat = True
@@ -222,15 +236,15 @@ def column_boxes(
                 repeat = False
                 for i in range(len(prects) - 1, 0, -1):
                     prect1 = prects[i]
+                    # do not join across columns
                     if prect1.x0 > prect0.x1 or prect1.x1 < prect0.x0:
                         continue
-                    temp = prect0 | prects[i]
+                    # do not join different backgrounds
+                    if in_bbox(prect0, path_rects) != in_bbox(prect1, path_rects):
+                        continue
+                    temp = prect0 | prect1
                     test = set(
-                        [
-                            tuple(b)
-                            for b in prects + new_rects
-                            if b.intersects(temp)
-                        ]
+                        [tuple(b) for b in prects + new_rects if b.intersects(temp)]
                     )
                     if test == set((tuple(prect0), tuple(prect1))):
                         prect0 |= prect1
@@ -238,55 +252,101 @@ def column_boxes(
                         repeat = True
             new_rects.append(prect0)
             del prects[0]
-        new_rects.sort(key=lambda b: (b.y0, b.x0))
-        return new_rects
 
-    def clean_nblocks(nblocks):
-        """Do some elementary cleaning."""
-
-        # 1. remove any duplicate blocks.
-        blen = len(nblocks)
-        if blen < 2:
-            return nblocks
-        start = blen - 1
-        for i in range(start, -1, -1):
-            bb1 = nblocks[i]
-            bb0 = nblocks[i - 1]
-            if bb0 == bb1:
-                del nblocks[i]
-
-        # 2. repair sequence in special cases:
-        # consecutive bboxes with almost same bottom value are sorted ascending
-        # by x-coordinate.
-        y1 = nblocks[0].y1  # first bottom coordinate
-        i0 = 0  # its index
-        i1 = -1  # index of last bbox with same bottom
-
-        # Iterate over bboxes, identifying segments with approx. same bottom value.
-        # Replace every segment by its sorted version.
-        for i in range(1, len(nblocks)):
-            b1 = nblocks[i]
-            if abs(b1.y1 - y1) > 10:  # different bottom
-                if i1 > i0:  # segment length > 1? Sort it!
-                    nblocks[i0 : i1 + 1] = sorted(
-                        nblocks[i0 : i1 + 1], key=lambda b: b.x0
-                    )
-                y1 = b1.y1  # store new bottom value
-                i0 = i  # store its start index
-            i1 = i  # store current index
-        if i1 > i0:  # segment waiting to be sorted
-            nblocks[i0 : i1 + 1] = sorted(
-                nblocks[i0 : i1 + 1], key=lambda b: b.x0
+        """
+        Hopefully the most reasonable sorting sequence:
+        At this point we have finished identifying blocks that wrap text.
+        We now need to determine the SEQUENCE by which text extraction from
+        these blocks should take place. This is hardly possible with 100%
+        certainty. Our sorting approach is guided by the following thought:
+        1. Extraction should start with the block whose top-left corner is the
+           left-most and top-most.
+        2. Any blocks further to the right should be extracted later - even if
+           their top-left corner is higher up on the page.
+        3. Sorting the identified rectangles must therefore happen using a
+           tuple (y, x) as key, where y is not smaller (= higher up) than that
+           of the left-most block with a non-empty vertical overlap.
+        4. To continue "left block" with "next is ...", its sort key must be
+                          Q +---------+    tuple (P.y, Q.x).
+                            | next is |
+              P +-------+   |  this   |
+                | left  |   |  block  |
+                | block |   +---------+
+                +-------+
+        """
+        sort_rects = []  # copy of "new_rects" with a computed sort key
+        for box in new_rects:
+            # search for the left-most rect that overlaps like "P" above
+            # candidates must have the same background
+            background = in_bbox(box, path_rects)  # this background
+            left_rects = sorted(
+                [
+                    r
+                    for r in new_rects
+                    if r.x1 < box.x0
+                    and (box.y0 <= r.y0 <= box.y1 or box.y0 <= r.y1 <= box.y1)
+                    # and in_bbox(r, path_rects) == background
+                ],
+                key=lambda r: r.x1,
             )
-        return nblocks
+            if left_rects:  # if a "P" rectangle was found ...
+                key = (left_rects[-1].y0, box.x0)  # use this key
+            else:
+                key = (box.y0, box.x0)  # else use the original (Q.y, Q.x).
+            sort_rects.append((box, key))
+        sort_rects.sort(key=lambda sr: sr[1])  # by computed key
+        new_rects = [sr[0] for sr in sort_rects]  # extract sorted rectangles
 
-    # extract vector graphics
+        # move shaded text rects into a separate list
+        shadow_rects = []
+        # for i in range(len(new_rects) - 1, 0, -1):
+        #     r = +new_rects[i]
+        #     if in_bbox(r, path_rects):  # text with shaded background
+        #         shadow_rects.insert(0, r)  # put in front to keep sequence
+        #         del new_rects[i]
+        return new_rects + shadow_rects
+
+    # compute relevant page area
+    clip = +page.rect
+    clip.y1 -= footer_margin  # Remove footer area
+    clip.y0 += header_margin  # Remove header area
+
+    paths = [
+        p
+        for p in page.get_drawings()
+        if p["rect"].width < clip.width and p["rect"].height < clip.height
+    ]
+
+    if textpage is None:
+        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
+
+    bboxes = []
+
+    # image bboxes
+    img_bboxes = []
+    if avoid is not None:
+        img_bboxes.extend(avoid)
+
+    # non-horizontal text boxes, avoid when expanding other text boxes
+    vert_bboxes = []
+
+    # path rectangles
+    path_rects = []
     for p in paths:
-        path_rects.append(p["rect"].irect)
-    path_bboxes = path_rects
+        # give empty path rectangles some small width or height
+        prect = p["rect"]
+        lwidth = 0.5 if (_ := p["width"]) is None else _ * 0.5
+
+        if prect.width == 0:
+            prect.x0 -= lwidth
+            prect.x1 += lwidth
+        if prect.height == 0:
+            prect.y0 -= lwidth
+            prect.y1 += lwidth
+        path_rects.append(prect)
 
     # sort path bboxes by ascending top, then left coordinates
-    path_bboxes.sort(key=lambda b: (b.y0, b.x0))
+    path_rects.sort(key=lambda b: (b.y0, b.x0))
 
     # bboxes of images on page, no need to sort them
     for item in page.get_images():
@@ -297,7 +357,7 @@ def column_boxes(
 
     # Make block rectangles, ignoring non-horizontal text
     for b in blocks:
-        bbox = pymupdf.IRect(b["bbox"])  # bbox of the block
+        bbox = pymupdf.Rect(b["bbox"])  # bbox of the block
 
         # ignore text written upon images
         if no_image_text and in_bbox(bbox, img_bboxes):
@@ -309,15 +369,15 @@ def column_boxes(
         except IndexError:
             continue
 
-        if line0["dir"] != (1, 0):  # only accept horizontal text
-            vert_bboxes.append(bbox)
+        if abs(1 - line0["dir"][0]) > 1e-3:  # only (almost) horizontal text
+            vert_bboxes.append(bbox)  # a block with non-horizontal text
             continue
 
-        srect = pymupdf.EMPTY_IRECT()
+        srect = pymupdf.EMPTY_RECT()
         for line in b["lines"]:
-            lbbox = pymupdf.IRect(line["bbox"])
-            text = "".join([s["text"].strip() for s in line["spans"]])
-            if len(text) > 1:
+            lbbox = pymupdf.Rect(line["bbox"])
+            text = "".join([s["text"] for s in line["spans"]])
+            if not is_white(text):
                 srect |= lbbox
         bbox = +srect
 
@@ -325,12 +385,7 @@ def column_boxes(
             bboxes.append(bbox)
 
     # Sort text bboxes by ascending background, top, then left coordinates
-    bboxes.sort(key=lambda k: (in_bbox(k, path_bboxes), k.y0, k.x0))
-
-    # Extend bboxes to the right where possible
-    # bboxes = extend_right(
-    #     bboxes, int(page.rect.width), path_bboxes, vert_bboxes, img_bboxes
-    # )
+    bboxes.sort(key=lambda k: (in_bbox(k, path_rects), k.y0, k.x0))
 
     # immediately return of no text found
     if bboxes == []:
@@ -351,16 +406,16 @@ def column_boxes(
             nbb = nblocks[j]  # a new block
 
             # never join across columns
-            if bb == None or nbb.x1 < bb.x0 or bb.x1 < nbb.x0:
+            if bb is None or nbb.x1 < bb.x0 or bb.x1 < nbb.x0:
                 continue
 
             # never join across different background colors
-            if in_bbox(nbb, path_bboxes) != in_bbox(bb, path_bboxes):
+            if in_bbox(nbb, path_rects) != in_bbox(bb, path_rects):
                 continue
 
             temp = bb | nbb  # temporary extension of new block
             check = can_extend(temp, nbb, nblocks, vert_bboxes)
-            if check == True:
+            if check is True:
                 break
 
         if not check:  # bb cannot be used to extend any of the new bboxes
@@ -370,7 +425,7 @@ def column_boxes(
 
         # check if some remaining bbox is contained in temp
         check = can_extend(temp, bb, bboxes, vert_bboxes)
-        if check == False:
+        if check is False:
             nblocks.append(bb)
         else:
             nblocks[j] = temp
@@ -378,10 +433,11 @@ def column_boxes(
 
     # do some elementary cleaning
     nblocks = clean_nblocks(nblocks)
-    # final joining of overlapping rectangles
+
+    # several phases of rectangle joining
     nblocks = join_rects_phase1(nblocks)
     nblocks = join_rects_phase2(nblocks)
-    nblocks = join_rects_phase3(nblocks)
+    nblocks = join_rects_phase3(nblocks, path_rects)
 
     # return identified text bboxes
     return nblocks
