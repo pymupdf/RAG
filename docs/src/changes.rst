@@ -4,6 +4,27 @@
 Change Log
 ===========================================================================
 
+Changes in version 0.0.15
+--------------------------
+
+Fixes:
+~~~~~~~
+
+* `138 <https://github.com/pymupdf/RAG/issues/138>`_ "Table is not extracted and some text order was wrong."
+* `135 <https://github.com/pymupdf/RAG/issues/135>`_ "Problem with multiple columns in simple text."
+* `134 <https://github.com/pymupdf/RAG/issues/134>`_ "Exclude images based on size threshold parameter."
+* `132 <https://github.com/pymupdf/RAG/issues/132>`_ "Optionally embed images as base64 string."
+* `128 <https://github.com/pymupdf/RAG/issues/128>`_ "Enhanced image embedding format."
+
+
+Improvements:
+~~~~~~~~~~~~~~
+* New parameter `embed_images` (bool) **embeds** images and vector graphics in the markdown text as base64-encoded strings. Ignores `write_images` and `image_path` parameters.
+* New parameter `image_size_limit` which is a float between 0 and 1, default is 0.05 (5%). Causes images to be ignored if their width or height values are smaller than the corresponding fraction of the page's width or height.
+* The algorithm has been improved which determins the sequence of the text rectangles on multi-column pages.
+* Change of the header identification algorithm: If more than six header levels are required for a document, then all text with a font size larger than body text is assumed to be a header of level 6 (i.e. HTML "h6" = "###### ").
+
+
 Changes in version 0.0.13
 --------------------------
 
@@ -17,7 +38,6 @@ Improvements:
 ~~~~~~~~~~~~~~
 * New parameter `ignore_code` suppresses special formatting of text in mono-spaced fonts.
 * New parameter `extract_words` enforces `page_chunks=True` and adds a "words" list to each page dictionary.
-
 
 
 Changes in version 0.0.11

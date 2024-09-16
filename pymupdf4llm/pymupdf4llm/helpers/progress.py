@@ -13,7 +13,7 @@ License GNU Affero GPL 3.0
 """
 
 import sys
-from typing import List, Any
+from typing import Any, List
 
 
 class _ProgressBar:
@@ -29,9 +29,13 @@ class _ProgressBar:
         self._increment = self._progress_width / self._len if self._len else 1
 
         # Init progress bar
-        sys.stdout.write("[%s] (0/%d)" % (" " * self._progress_width, self._len))
+        sys.stdout.write(
+            "[%s] (0/%d)" % (" " * self._progress_width, self._len)
+        )
         sys.stdout.flush()
-        sys.stdout.write("\b" * (self._progress_width + len(str(self._len)) + 6))
+        sys.stdout.write(
+            "\b" * (self._progress_width + len(str(self._len)) + 6)
+        )
 
     def __iter__(self):
         return self
@@ -57,7 +61,9 @@ class _ProgressBar:
         # Update the numerical progress
         padded_index = str(self._current_index).rjust(self._len_digits)
         progress_info = f" ({padded_index}/{self._len})"
-        sys.stdout.write("\b" * (self._progress_width + len(progress_info) + 1))
+        sys.stdout.write(
+            "\b" * (self._progress_width + len(progress_info) + 1)
+        )
         sys.stdout.write("[")
         sys.stdout.write(
             "=" * int(self._current_index * self._progress_width / self._len)

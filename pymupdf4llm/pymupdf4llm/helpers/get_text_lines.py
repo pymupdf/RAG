@@ -34,7 +34,8 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     Result is a sorted list of line objects that consist of the recomputed line
     boundary box and the sorted list of spans in that line.
 
-    This result can then easily be converted e.g. to plain or markdown text.
+    This result can then easily be converted e.g. to plain text and other
+    formats like Markdown or JSON.
 
     Args:
         textpage: (mandatory) TextPage object
@@ -45,7 +46,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
 
     Returns:
         A sorted list of items (rect, [spans]), each representing one line. The
-        spans are sorted left to right, Span dictionaries have been changed:
+        spans are sorted left to right. Span dictionaries have been changed:
         - "bbox" has been converted to a Rect object
         - "line" (new) the line number in TextPage.extractDICT
         - "block" (new) the block number in TextPage.extractDICT
@@ -98,7 +99,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     spans = []  # all spans in TextPage here
     for bno, b in enumerate(blocks):  # the numbered blocks
         for lno, line in enumerate(b["lines"]):  # the numbered lines
-            if abs(1-line["dir"][0]) > 1e-3:  # only accept horizontal text
+            if abs(1 - line["dir"][0]) > 1e-3:  # only accept horizontal text
                 continue
             for sno, s in enumerate(line["spans"]):  # the numered spans
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
@@ -131,7 +132,10 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         sbbox = s["bbox"]  # this bbox
         sbbox0 = line[-1]["bbox"]  # previous bbox
         # if any of top or bottom coordinates are close enough, join...
-        if abs(sbbox.y1 - sbbox0.y1) <= y_delta or abs(sbbox.y0 - sbbox0.y0) <= y_delta:
+        if (
+            abs(sbbox.y1 - sbbox0.y1) <= y_delta
+            or abs(sbbox.y0 - sbbox0.y0) <= y_delta
+        ):
             line.append(s)  # append to this line
             lrect |= sbbox  # extend line rectangle
             continue
@@ -152,7 +156,9 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     return nlines
 
 
-def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False):
+def get_text_lines(
+    page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False
+):
     """Extract text by line keeping natural reading sequence.
 
     Notes:
