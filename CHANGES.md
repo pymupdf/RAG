@@ -1,9 +1,17 @@
 # Change Log
 
 
+## Changes in version 0.0.17
+
+### Fixes:
+
+
+* [147](https://github.com/pymupdf/RAG/issues/147) - Error when page contains nothing but a table.
+* [81](https://github.com/pymupdf/RAG/issues/81) - Issues with bullet points in PDFs.
+* [78](https://github.com/pymupdf/RAG/issues/78) - multi column pdf file text extraction.
+
+
 ## Changes in version 0.0.15
-
-
 
 ### Fixes:
 
