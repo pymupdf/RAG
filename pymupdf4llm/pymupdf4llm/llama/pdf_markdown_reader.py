@@ -9,7 +9,6 @@ try:
     from llama_index.core.readers.base import BaseReader
     from llama_index.core.schema import Document as LlamaIndexDocument
 
-    print("Successfully imported LlamaIndex")
 except ImportError:
     raise NotImplementedError("Please install 'llama_index'.")
 
