@@ -256,6 +256,7 @@ def to_markdown(
     ignore_code=False,
     extract_words=False,
     show_progress=True,
+    password=None,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -278,6 +279,7 @@ def to_markdown(
         ignore_code: (bool) suppress extra formatting for mono-space fonts
         extract_words: (bool) include "words"-like output in page chunks
         show_progress: (bool) print progress as each page is processed.
+        password: (str) password for encrypted documents.
 
     """
     if write_images is False and embed_images is False and force_text is False:
@@ -303,6 +305,8 @@ def to_markdown(
 
     if not isinstance(doc, pymupdf.Document):
         doc = pymupdf.open(doc)
+        if password:
+            doc.authenticate(password)
 
     # for reflowable documents allow making 1 page for the whole document
     if doc.is_reflowable:
