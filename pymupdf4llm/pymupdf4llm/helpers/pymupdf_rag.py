@@ -1,5 +1,4 @@
-"""
-This script accepts a PDF document filename and converts it to a text file
+"""This script accepts a PDF document filename and converts it to a text file
 in Markdown format, compatible with the GitHub standard.
 
 It must be invoked with the filename like this:
@@ -15,7 +14,7 @@ It will produce a markdown text file called "input.md".
 
 Text will be sorted in Western reading order. Any table will be included in
 the text in markdwn format as well.
- 
+
 Dependencies
 -------------
 PyMuPDF v1.24.3 or later
@@ -29,16 +28,18 @@ License GNU Affero GPL 3.0
 import os
 import string
 from binascii import b2a_base64
+from dataclasses import dataclass
+
 import pymupdf
+
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
 from pymupdf4llm.helpers.progress import ProgressBar
-from dataclasses import dataclass
 
 # Characters recognized as bullets when starting a line.
 bullet = tuple(
     ["- ", "* ", "> ", chr(0xB6), chr(0xB7), chr(8226), chr(0xF0A7), chr(0xF0B7)]
-    + list(map(chr, range(9632, 9680)))
+    + list(map(chr, range(9632, 9680))),
 )
 
 GRAPHICS_TEXT = "\n![](%s)\n"
@@ -69,6 +70,7 @@ class IdentifyHeaders:
         Args:
             pages: optional list of pages to consider
             body_limit: consider text with larger font size as some header
+
         """
         if isinstance(doc, pymupdf.Document):
             mydoc = doc
@@ -115,7 +117,7 @@ class IdentifyHeaders:
 
         # identify up to 6 font sizes as header candidates
         sizes = sorted(
-            [f for f in fontsizes.keys() if f > self.body_limit],
+            [f for f in fontsizes if f > self.body_limit],
             reverse=True,
         )[:6]
 
@@ -251,6 +253,7 @@ def to_markdown(
     page_width=612,
     page_height=None,
     table_strategy="lines_strict",
+    textflags=pymupdf.TEXT_MEDIABOX_CLIP,
     graphics_limit=None,
     fontsize_limit=3,
     ignore_code=False,
@@ -273,7 +276,8 @@ def to_markdown(
         dpi: (int) desired resolution for generated images.
         page_width: (float) assumption if page layout is variable.
         page_height: (float) assumption if page layout is variable.
-        table_strategy: choose table detection strategy
+        table_strategy: choose table detection strategy.
+        textflags: text extraction flags. option bits controlling the amount of data that are parsed into a TextPage.
         graphics_limit: (int) ignore page with too many vector graphics.
         ignore_code: (bool) suppress extra formatting for mono-space fonts
         extract_words: (bool) include "words"-like output in page chunks
@@ -325,7 +329,7 @@ def to_markdown(
         margins = (0, margins[0], 0, margins[1])
     if len(margins) != 4:
         raise ValueError("margins must be one, two or four floats")
-    elif not all([hasattr(m, "__float__") for m in margins]):
+    if not all([hasattr(m, "__float__") for m in margins]):
         raise ValueError("margin values must be floats")
 
     # If "hdr_info" is not an object with a method "get_header_id", scan the
@@ -349,13 +353,14 @@ def to_markdown(
 
         Returns:
             None or a string representing the link in MD format.
+
         """
         bbox = pymupdf.Rect(span["bbox"])  # span bbox
         # a link should overlap at least 70% of the span
         for link in links:
             hot = link["from"]  # the hot area of the link
             middle = (hot.tl + hot.br) / 2  # middle point of hot area
-            if not middle in bbox:
+            if middle not in bbox:
                 continue  # does not touch the bbox
             text = f'[{span["text"].strip()}]({link["uri"]})'
             return text
@@ -364,8 +369,8 @@ def to_markdown(
         """Optionally render the rect part of a page.
 
         We will ignore images that are empty or that have an edge smaller
-        than x% of the corresponding page edge."""
-
+        than x% of the corresponding page edge.
+        """
         if (
             rect.width < page.rect.width * image_size_limit
             or rect.height < page.rect.height * image_size_limit
@@ -381,11 +386,12 @@ def to_markdown(
         if write_images is True:
             filename = os.path.basename(page.parent.name).replace(" ", "-")
             image_filename = os.path.join(
-                IMG_PATH, f"{filename}-{page.number}-{i}.{IMG_EXTENSION}"
+                IMG_PATH,
+                f"{filename}-{page.number}-{i}.{IMG_EXTENSION}",
             )
             pix.save(image_filename)
             return image_filename.replace("\\", "/")
-        elif embed_images is True:
+        if embed_images is True:
             # make a bas64 encoded string of the image
             data = b2a_base64(pix.tobytes(IMG_EXTENSION)).decode()
             data = f"data:image/{IMG_EXTENSION};base64," + data
@@ -415,7 +421,6 @@ def to_markdown(
         via their own 'to_markdown' method. Images and vector graphics are
         optionally saved as files and pointed to by respective markdown text.
         """
-
         if clip is None:
             clip = parms.clip
         out_string = ""
@@ -431,7 +436,7 @@ def to_markdown(
         ]
 
         parms.line_rects.extend(
-            [l[0] for l in nlines if not intersects_rects(l[0], tab_rects0)]
+            [l[0] for l in nlines if not intersects_rects(l[0], tab_rects0)],
         )  # store line rectangles
 
         prev_lrect = None  # previous line rectangle
@@ -465,7 +470,7 @@ def to_markdown(
                                 for c in parms.tabs[i].header.cells
                                 + parms.tabs[i].cells
                                 if c is not None
-                            ]
+                            ],
                         ),
                         key=lambda c: (c.y1, c.x0),
                     )
@@ -588,7 +593,7 @@ def to_markdown(
                         text = t + text[1:]
                         dist = span0["bbox"][0] - clip.x0
                         cwidth = (span0["bbox"][2] - span0["bbox"][0]) / len(
-                            span0["text"]
+                            span0["text"],
                         )
                         text = " " * int(round(dist / cwidth)) + text
                     out_string += text
@@ -636,7 +641,7 @@ def to_markdown(
                                 for c in parms.tabs[i].header.cells
                                 + parms.tabs[i].cells
                                 if c is not None
-                            ]
+                            ],
                         ),
                         key=lambda c: (c.y1, c.x0),
                     )
@@ -658,7 +663,7 @@ def to_markdown(
                                 for c in parms.tabs[i].header.cells
                                 + parms.tabs[i].cells
                                 if c is not None
-                            ]
+                            ],
                         ),
                         key=lambda c: (c.y1, c.x0),
                     )
@@ -754,6 +759,7 @@ def to_markdown(
         Returns:
             Markdown string of page content and image, table and vector
             graphics information.
+
         """
         page = doc[pno]
         page.remove_rotation()  # make sure we work on rotation=0
@@ -950,7 +956,7 @@ def to_markdown(
                     "graphics": parms.graphics,
                     "text": parms.md_string,
                     "words": parms.words,
-                }
+                },
             )
         del parms
 
