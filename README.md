@@ -42,6 +42,12 @@ To create small **chunks of text** - as opposed to generating one large string f
 
 Also new in version 0.0.2 is the optional **extraction of images** and vector graphics: use of parameter `write_images=True`. The will store PNG images in the document's folder, and the Markdown text will appropriately refer to them. The images are named like `"input.pdf-page_number-index.png"`.
 
+# Documentation and API
+
+[Documentation](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/index.html)
+
+[API](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/api.html#pymupdf4llm-api)
+
 # Document Support
 
 While PDF is by far the most important document format worldwide, it is worthwhile mentioning that all examples and helper scripts work in the same way and **_without change_** for [all supported file types](https://pymupdf.readthedocs.io/en/latest/how-to-open-a-file.html#supported-file-types).
