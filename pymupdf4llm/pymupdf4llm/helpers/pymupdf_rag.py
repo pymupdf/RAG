@@ -256,7 +256,7 @@ def to_markdown(
     ignore_code=False,
     extract_words=False,
     show_progress=True,
-) -> str:
+) -> str | list[dict]:
     """Process the document and return the text of the selected pages.
 
     Args:
