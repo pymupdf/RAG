@@ -15,7 +15,7 @@ It will produce a markdown text file called "input.md".
 
 Text will be sorted in Western reading order. Any table will be included in
 the text in markdwn format as well.
- 
+
 Dependencies
 -------------
 PyMuPDF v1.24.3 or later
@@ -256,6 +256,7 @@ def to_markdown(
     ignore_code=False,
     extract_words=False,
     show_progress=True,
+    image_extract_algorithm="simple-drop",
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -278,6 +279,7 @@ def to_markdown(
         ignore_code: (bool) suppress extra formatting for mono-space fonts
         extract_words: (bool) include "words"-like output in page chunks
         show_progress: (bool) print progress as each page is processed.
+        image_extract_algorithm: (str) which algorithm to use "simple" or "simple-drop".
 
     """
     if write_images is False and embed_images is False and force_text is False:
@@ -784,27 +786,12 @@ def to_markdown(
         # make a TextPage for all later extractions
         parms.textpage = page.get_textpage(flags=textflags, clip=parms.clip)
 
-        # extract images on page
-        # ignore images contained in some other one (simplified mechanism)
-        img_info = page.get_image_info()
-        for i in range(len(img_info)):
-            item = img_info[i]
-            item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
-            img_info[i] = item
+        extract_images_on_page = {
+            "simple": extract_images_on_page_simple,
+            "simple-drop": extract_images_on_page_simple_drop,
+        }[image_extract_algorithm]
 
-        # sort descending by image area size
-        img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
-        # run from back to front (= small to large)
-        for i in range(len(img_info) - 1, 0, -1):
-            r = img_info[i]["bbox"]
-            if r.is_empty:
-                del img_info[i]
-                continue
-            for j in range(i):  # image areas larger than r
-                if r in img_info[j]["bbox"]:
-                    del img_info[i]  # contained in some larger image
-                    break
-        parms.images = img_info
+        parms.images = extract_images_on_page(page, parms, image_size_limit)
         parms.img_rects = [i["bbox"] for i in parms.images]
 
         # Locate all tables on page
@@ -955,6 +942,64 @@ def to_markdown(
         del parms
 
     return document_output
+
+
+def extract_images_on_page_simple(page, parms, image_size_limit):
+    # extract images on page
+    # ignore images contained in some other one (simplified mechanism)
+    img_info = page.get_image_info()
+    for i in range(len(img_info)):
+        item = img_info[i]
+        item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
+        img_info[i] = item
+
+    # sort descending by image area size
+    img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
+    # run from back to front (= small to large)
+    for i in range(len(img_info) - 1, 0, -1):
+        r = img_info[i]["bbox"]
+        if r.is_empty:
+            del img_info[i]
+            continue
+        for j in range(i):  # image areas larger than r
+            if r in img_info[j]["bbox"]:
+                del img_info[i]  # contained in some larger image
+                break
+
+    return img_info
+
+
+def filter_small_images(page, parms, image_size_limit):
+    img_info = []
+    for item in page.get_image_info():
+        r = pymupdf.Rect(item["bbox"]) & parms.clip
+        if r.is_empty or (
+            max(r.width / page.rect.width, r.height / page.rect.height)
+            < image_size_limit
+        ):
+            continue
+        item["bbox"] = r
+        img_info.append(item)
+    return img_info
+
+
+def extract_images_on_page_simple_drop(page, parms, image_size_limit):
+    img_info = filter_small_images(page, parms, image_size_limit)
+
+    # sort descending by image area size
+    img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
+    # run from back to front (= small to large)
+    for i in range(len(img_info) - 1, 0, -1):
+        r = img_info[i]["bbox"]
+        if r.is_empty:
+            del img_info[i]
+            continue
+        for j in range(i):  # image areas larger than r
+            if r in img_info[j]["bbox"]:
+                del img_info[i]  # contained in some larger image
+                break
+
+    return img_info
 
 
 if __name__ == "__main__":
