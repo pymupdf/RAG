@@ -93,12 +93,19 @@ def column_boxes(
         """Check for relevant text."""
         return WHITE.issuperset(text)
 
-    def in_bbox(bb, bboxes):
-        """Return 1-based number if a bbox contains bb, else return 0."""
+    def in_bbox(bb, bboxes, threshold=0.95):
         for i, bbox in enumerate(bboxes, start=1):
-            if bb in bbox:
+            if almost_in_bbox(bb, bbox, threshold):
                 return i
         return 0
+
+    def almost_in_bbox(bb, box, threshold):
+        intersect = bb & box
+        if intersect.is_empty:
+            return False
+
+        ratio = intersect.get_area() / bb.get_area()
+        return ratio >= threshold
 
     def intersects_bboxes(bb, bboxes):
         """Return True if a bbox touches bb, else return False."""
