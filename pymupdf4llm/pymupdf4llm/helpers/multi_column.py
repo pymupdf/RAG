@@ -100,6 +100,23 @@ def column_boxes(
                 return i
         return 0
 
+    def in_bbox_using_cache(bb, bboxes, cache):
+        """Return 1-based number if a bbox contains bb, else return 0."""
+        """Results are stored in the cache for speedup."""
+        cache_key = f"{id(bb)}_{id(bboxes)}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        index = 0
+        for i, bbox in enumerate(bboxes, start=1):
+            if bb in bbox:
+                index = i
+                break
+
+        cache[cache_key] = index
+        return index
+
     def intersects_bboxes(bb, bboxes):
         """Return True if a bbox touches bb, else return False."""
         for bbox in bboxes:
@@ -225,7 +242,7 @@ def column_boxes(
             new_rects.append(r)
         return new_rects
 
-    def join_rects_phase3(bboxes, path_rects):
+    def join_rects_phase3(bboxes, path_rects, cache):
         prects = bboxes[:]
         new_rects = []
 
@@ -240,7 +257,7 @@ def column_boxes(
                     if prect1.x0 > prect0.x1 or prect1.x1 < prect0.x0:
                         continue
                     # do not join different backgrounds
-                    if in_bbox(prect0, path_rects) != in_bbox(prect1, path_rects):
+                    if in_bbox_using_cache(prect0, path_rects, cache) != in_bbox_using_cache(prect1, path_rects, cache):
                         continue
                     temp = prect0 | prect1
                     test = set(
@@ -397,6 +414,7 @@ def column_boxes(
     # the final block bboxes on page
     nblocks = [bboxes[0]]  # pre-fill with first bbox
     bboxes = bboxes[1:]  # remaining old bboxes
+    cache = {}
 
     for i, bb in enumerate(bboxes):  # iterate old bboxes
         check = False  # indicates unwanted joins
@@ -410,7 +428,7 @@ def column_boxes(
                 continue
 
             # never join across different background colors
-            if in_bbox(nbb, path_rects) != in_bbox(bb, path_rects):
+            if in_bbox_using_cache(nbb, path_rects, cache) != in_bbox_using_cache(bb, path_rects, cache):
                 continue
 
             temp = bb | nbb  # temporary extension of new block
@@ -437,7 +455,7 @@ def column_boxes(
     # several phases of rectangle joining
     nblocks = join_rects_phase1(nblocks)
     nblocks = join_rects_phase2(nblocks)
-    nblocks = join_rects_phase3(nblocks, path_rects)
+    nblocks = join_rects_phase3(nblocks, path_rects, cache)
 
     # return identified text bboxes
     return nblocks
