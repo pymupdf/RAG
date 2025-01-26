@@ -110,10 +110,11 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
                     continue
                 if s["flags"] & 1 == 1:  # if a superscript, modify bbox
                     # with that of the preceding or following span
-                    i = 1 if sno == 0 else sno - 1
-                    neighbor = line["spans"][i]
-                    sbbox.y1 = neighbor["bbox"][3]
-                    s["text"] = f"[{s['text']}]"
+                    if len(line["spans"]) > 1:
+                        i = 1 if sno == 0 else sno - 1
+                        neighbor = line["spans"][i]
+                        sbbox.y1 = neighbor["bbox"][3]
+                        s["text"] = f"[{s['text']}]"
                 s["bbox"] = sbbox  # update with the Rect version
                 # include line/block numbers to facilitate separator insertion
                 s["line"] = lno
