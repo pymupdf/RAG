@@ -265,6 +265,7 @@ def column_boxes(
                     )
                     if test == set((tuple(prect0), tuple(prect1))):
                         prect0 |= prect1
+                        prects[0] = prect0
                         del prects[i]
                         repeat = True
             new_rects.append(prect0)
