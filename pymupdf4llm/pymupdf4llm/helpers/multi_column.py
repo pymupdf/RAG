@@ -157,6 +157,9 @@ def column_boxes(
             if bb0 == bb1:
                 del nblocks[i]
 
+        if len(nblocks) == 0:
+            return nblocks
+
         # 2. repair sequence in special cases:
         # consecutive bboxes with almost same bottom value are sorted ascending
         # by x-coordinate.
@@ -452,6 +455,8 @@ def column_boxes(
 
     # do some elementary cleaning
     nblocks = clean_nblocks(nblocks)
+    if len(nblocks) == 0:
+        return nblocks
 
     # several phases of rectangle joining
     nblocks = join_rects_phase1(nblocks)
