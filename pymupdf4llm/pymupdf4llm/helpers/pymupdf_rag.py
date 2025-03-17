@@ -593,7 +593,7 @@ def to_markdown(
                             span0["text"]
                         )
                         if cwidth == 0.0:
-                            cwidth = 5.0
+                            cwidth = span0["size"] * 0.5
                         text = " " * int(round(dist / cwidth)) + text
                     out_string += text
             if not code:
