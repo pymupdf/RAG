@@ -592,6 +592,8 @@ def to_markdown(
                         cwidth = (span0["bbox"][2] - span0["bbox"][0]) / len(
                             span0["text"]
                         )
+                        if cwidth == 0.0:
+                            cwidth = span0["size"] * 0.5
                         text = " " * int(round(dist / cwidth)) + text
                     out_string += text
             if not code:
