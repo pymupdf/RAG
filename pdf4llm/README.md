@@ -50,7 +50,7 @@ Instead of the filename string as above, one can also provide a PyMuPDF `Documen
     ```python
     import pdf4llm
     
-    md_read = LlamaMarkdownReader()
+    md_read = pdf4llm.LlamaMarkdownReader()
     data = md_read.load_data("input.pdf")
 
     # The result 'data' is of type List[LlamaIndexDocument]
