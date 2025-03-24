@@ -188,9 +188,9 @@ def column_boxes(
 
         Joins any rectangles that "touch" each other.
         This means that their intersection is valid (but may be empty).
-        To prefer vertical joins, we will ignore small horizontal gaps.
+        To prefer vertical joins, we will ignore small gaps.
         """
-        delta = (0, 0, 0, 2)  # allow this gap below
+        delta = (0, 0, 0, 10)  # allow this gap below
         prects = bboxes[:]
         new_rects = []
         while prects:
@@ -199,7 +199,7 @@ def column_boxes(
             while repeat:
                 repeat = False
                 for i in range(len(prects) - 1, 0, -1):
-                    if not ((prect0 + delta) & prects[i]).is_empty:
+                    if ((prect0 + delta) & prects[i]).is_valid:
                         prect0 |= prects[i]
                         del prects[i]
                         repeat = True
@@ -228,11 +228,11 @@ def column_boxes(
         prects.sort(key=lambda b: (b.x0, b.y0))
         new_rects = [prects[0]]  # initialize with first item
 
-        # walk through the rest, top to bottom, thwn left to right
+        # walk through the rest, top to bottom, then left to right
         for r in prects[1:]:
             r0 = new_rects[-1]  # previous bbox
 
-            # join if we have similar borders and are not to far down
+            # join if we have similar borders and are not too far down
             if (
                 abs(r.x0 - r0.x0) <= 3
                 and abs(r.x1 - r0.x1) <= 3
@@ -259,6 +259,7 @@ def column_boxes(
                     # do not join across columns
                     if prect1.x0 > prect0.x1 or prect1.x1 < prect0.x0:
                         continue
+
                     # do not join different backgrounds
                     if in_bbox_using_cache(prect0, path_rects, cache) != in_bbox_using_cache(prect1, path_rects, cache):
                         continue
@@ -318,7 +319,7 @@ def column_boxes(
         sort_rects.sort(key=lambda sr: sr[1])  # by computed key
         new_rects = [sr[0] for sr in sort_rects]  # extract sorted rectangles
 
-        # move shaded text rects into a separate list
+        # move text rects with background color into a separate list
         shadow_rects = []
         # for i in range(len(new_rects) - 1, 0, -1):
         #     r = +new_rects[i]

@@ -2,9 +2,9 @@ import pymupdf4llm
 from pymupdf4llm import *
 
 
-__version__ = "0.0.9"
-version = __version__
-version_tuple = tuple(map(int, version.split(".")))
+__version__ = pymupdf4llm.__version__
+version = pymupdf4llm.version
+version_tuple = pymupdf4llm.version_tuple
 
 
 def LlamaMarkdownReader(*args, **kwargs):
