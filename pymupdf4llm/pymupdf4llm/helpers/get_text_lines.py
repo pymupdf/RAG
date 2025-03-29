@@ -74,11 +74,15 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
             s0 = line[i - 1]
             s1 = line[i]
             # "delta" depends on the font size. Spans  will be joined if
-            # no more than 10% of the font size separates them.
+            # no more than 10% of the font size separates them and important
+            # attributes are the same.
             delta = s1["size"] * 0.1
-            if s0["bbox"].x1 + delta < s1["bbox"].x0:
-                continue  # all good: no joining neded
-
+            if s0["bbox"].x1 + delta < s1["bbox"].x0 or (
+                s0["flags"],
+                s0["char_flags"],
+                s0["size"],
+            ) != (s1["flags"], s1["char_flags"], s1["size"]):
+                continue  # no joining
             # We need to join bbox and text of two consecutive spans
             # On occasion, spans may also be duplicated.
             if s0["text"] != s1["text"] or s0["bbox"] != s1["bbox"]:
@@ -108,11 +112,14 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
                     continue
                 if is_white(s["text"]):  # ignore white text
                     continue
+                if s["alpha"] == 0:  # ignore invisible text
+                    continue
                 if s["flags"] & 1 == 1:  # if a superscript, modify bbox
                     # with that of the preceding or following span
                     i = 1 if sno == 0 else sno - 1
-                    neighbor = line["spans"][i]
-                    sbbox.y1 = neighbor["bbox"][3]
+                    if len(line["spans"]) > i:
+                        neighbor = line["spans"][i]
+                        sbbox.y1 = neighbor["bbox"][3]
                     s["text"] = f"[{s['text']}]"
                 s["bbox"] = sbbox  # update with the Rect version
                 # include line/block numbers to facilitate separator insertion
@@ -132,10 +139,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         sbbox = s["bbox"]  # this bbox
         sbbox0 = line[-1]["bbox"]  # previous bbox
         # if any of top or bottom coordinates are close enough, join...
-        if (
-            abs(sbbox.y1 - sbbox0.y1) <= y_delta
-            or abs(sbbox.y0 - sbbox0.y0) <= y_delta
-        ):
+        if abs(sbbox.y1 - sbbox0.y1) <= y_delta or abs(sbbox.y0 - sbbox0.y0) <= y_delta:
             line.append(s)  # append to this line
             lrect |= sbbox  # extend line rectangle
             continue
@@ -156,9 +160,7 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
     return nlines
 
 
-def get_text_lines(
-    page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False
-):
+def get_text_lines(page, *, textpage=None, clip=None, sep="\t", tolerance=3, ocr=False):
     """Extract text by line keeping natural reading sequence.
 
     Notes:

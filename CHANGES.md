@@ -1,6 +1,50 @@
 # Change Log
 
 
+## Changes in version 0.0.19
+
+### Fixes:
+The following list includes fixes made in version 0.0.18 already.
+
+* [158](https://github.com/pymupdf/RAG/issues/158) - Very long titles when converting to markdown.
+* [155](https://github.com/pymupdf/RAG/issues/155) - Inconsistent image extraction from image-only PDFs
+* [161](https://github.com/pymupdf/RAG/issues/161) - force_text param ignored.
+* [162](https://github.com/pymupdf/RAG/issues/162) - to_markdown isn't outputting all the pages but get_text is.
+* [173](https://github.com/pymupdf/RAG/issues/173) - First column of table is repeated before the actual table.
+* [187](https://github.com/pymupdf/RAG/issues/187) - Unsolicited Text Particles
+* [188](https://github.com/pymupdf/RAG/issues/188) - Takes lot of time to convert into markdown.
+* [191](https://github.com/pymupdf/RAG/issues/191) - Extraction of text stops in the middle while working fine with PyMuPDF.
+* [212](https://github.com/pymupdf/RAG/issues/212) - In pymupdf4llm, if a page has multiple images, only 1 image per-page is extracted.
+* [213](https://github.com/pymupdf/RAG/issues/213) - Many ���� after converting when using pymupdf4llm
+* [215](https://github.com/pymupdf/RAG/issues/215) - Spending too much time on identifying text bboxes
+* [218](https://github.com/pymupdf/RAG/issues/218) - IndexError in get_raw_lines when processing PDFs with formulas
+* [225](https://github.com/pymupdf/RAG/issues/225) - Text with background missing from output.
+* [229](https://github.com/pymupdf/RAG/issues/229) - Duplicated Table Content on pymuPDF4LLM.
+
+
+### Other Changes:
+
+* Added **_new parameter_** `filename`: (str), optional. Overwrites or sets the filename for saved images. Useful when the document is opened from memory.
+
+* Added **_new parameter_** `use_glyphs`: (bool), optional. Request to use the glyph number (if possible) of a character if the font has no back-translation to the original Unicode value. The default is `False` which causes &#xfffd; symbols to be rendered in these cases.
+
+* Added **_strike-out support_**: We now detect and render ~~striked-out text.~~
+
+* Improved **_background color_** detection: We have introduced a simple background color detection mechanism: If a page shows an identical color in all four corners, we assume this to be the background color. Text and vector graphics with this color will be ignored as invisible.
+
+* Improved **_invisible text detection_**: Text with an alpha value of 0 is now ignored.
+
+* Improved **_fake-bold_** detection: Text mimicking bold appearance is now treated like standard bold text in most cases.
+
+* Header handling changes:
+    - Detection now happens based on the **_largest font size_** of the line.
+    - Uniformly rendered: All spans of a header line will now be rendered with the same appearance.
+
+* Changed handling of parameter `graphics_limit`: We previously ignored a page completely if the vector graphics count exceeded the limit. We now only ignore vector graphics if their count **_outside table boundary boxes_** is too large. This should only suppress vector graphics on the page, while keeping images, text and table content extractable.
+
+* Changed the `margins` default to 0. The previous default `(0, 50, 0, 50)` ignored 50 points at the top and bottom of pages. This has turned out to cause confusion in too many cases.
+
+
 ## Changes in version 0.0.17
 
 ### Fixes:
