@@ -28,7 +28,6 @@ setuptools.setup(
     license="GNU AFFERO GPL 3.0",
     url="https://github.com/pymupdf/RAG",
     classifiers=classifiers,
-    project_urls={},
     package_data={
         "pdf4llm": ["LICENSE"],
     },
