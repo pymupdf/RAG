@@ -32,4 +32,10 @@ setuptools.setup(
     package_data={
         "pymupdf4llm": ["LICENSE", "helpers/*.py", "llama/*.py"],
     },
+    project_urls={
+        "Documentation": "https://pymupdf.readthedocs.io/",
+        "Source": "https://github.com/pymupdf/RAG/tree/main/pymupdf4llm/pymupdf4llm",
+        "Tracker": "https://github.com/pymupdf/RAG/issues",
+        "Changelog": "https://github.com/pymupdf/RAG/blob/main/CHANGES.md",
+    },
 )

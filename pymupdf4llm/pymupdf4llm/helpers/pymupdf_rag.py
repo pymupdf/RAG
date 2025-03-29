@@ -453,14 +453,21 @@ def to_markdown(
             # Pick up tables ABOVE this text block
             # ------------------------------------------------------------
             if tables:
-                for i, _ in sorted(
+                tab_candidates = sorted(
                     [
-                        j
-                        for j in parms.tab_rects.items()
-                        if j[1].y1 <= lrect.y0 and not (j[1] & lrect).is_empty
+                        (i, tab_rect)
+                        for i, tab_rect in parms.tab_rects.items()
+                        if tab_rect.y1 <= lrect.y0
+                        and i not in parms.deleted_tables
+                        and (
+                            0
+                            or lrect.x0 <= tab_rect.x0 < lrect.x1
+                            or lrect.x0 < tab_rect.x1 <= lrect.x1
+                        )
                     ],
                     key=lambda j: (j[1].y1, j[1].x0),
-                ):
+                )
+                for i, _ in tab_candidates:
                     out_string += "\n" + parms.tabs[i].to_markdown(clean=False) + "\n"
                     if EXTRACT_WORDS:
                         # for "words" extraction, add table cells as line rects
@@ -476,7 +483,7 @@ def to_markdown(
                             key=lambda c: (c.y1, c.x0),
                         )
                         parms.line_rects.extend(cells)
-                    del tab_rects[i]
+                    parms.deleted_tables.append(i)
 
             # ------------------------------------------------------------
             # Pick up images / graphics ABOVE this text block
@@ -516,6 +523,10 @@ def to_markdown(
 
             # full line strikeout?
             all_strikeout = all([s["char_flags"] & 1 for s in spans])
+            # full line italic?
+            all_italic = all([s["flags"] & 2 for s in spans])
+            # full line bold?
+            all_bold = all([s["flags"] & 16 or s["char_flags"] & 8 for s in spans])
 
             # full line mono-spaced?
             if not IGNORE_CODE:
@@ -523,7 +534,7 @@ def to_markdown(
             else:
                 all_mono = False
 
-            if all_mono:
+            if all_mono and not hdr_string:
                 if not code:  # if not already in code output mode:
                     out_string += "```\n"  # switch on "code" mode
                     code = True
@@ -536,9 +547,22 @@ def to_markdown(
                 continue  # done with this line
 
             if hdr_string:  # if a header line skip the rest
+                if all_mono:
+                    text = "`" + text + "`"
                 if all_strikeout:
                     text = "~~" + text + "~~"
-                out_string += hdr_string + text + "\n"
+                if all_italic:
+                    text = "*" + text + "*"
+                if all_bold:
+                    text = "**" + text + "**"
+                if hdr_string != prev_hdr_string:
+                    out_string += hdr_string + text + "\n"
+                else:
+                    # intercept if header text has been broken in multiple lines
+                    while out_string.endswith("\n"):
+                        out_string = out_string[:-1]
+                    out_string += " " + text + "\n"
+                prev_hdr_string = hdr_string
                 continue
 
             span0 = spans[0]
@@ -556,15 +580,6 @@ def to_markdown(
             ):
                 out_string += "\n"
             prev_lrect = lrect
-
-            # intercept if header text has been broken in multiple lines
-            if hdr_string and hdr_string == prev_hdr_string:
-                while out_string.endswith("\n"):
-                    out_string = out_string[:-1]
-                out_string = out_string[:-1] + " " + text + "\n"
-                continue
-
-            prev_hdr_string = hdr_string
 
             # this line is not all-mono, so switch off "code" mode
             if code:  # in code output mode?
@@ -594,6 +609,9 @@ def to_markdown(
                 if strikeout:
                     prefix = "~~" + prefix
                     suffix += "~~"
+                if mono:
+                    prefix = "`" + prefix
+                    suffix += "`"
 
                 # convert intersecting link to markdown syntax
                 ltext = resolve_links(parms.links, s)
@@ -649,6 +667,8 @@ def to_markdown(
                 [j for j in parms.tab_rects.items() if j[1].y1 <= text_rect.y0],
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
+                if i in parms.deleted_tables:
+                    continue
                 this_md += parms.tabs[i].to_markdown(clean=False)
                 if EXTRACT_WORDS:
                     # for "words" extraction, add table cells as line rects
@@ -671,6 +691,8 @@ def to_markdown(
                 parms.tab_rects.items(),
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
+                if i in parms.deleted_tables:
+                    continue
                 this_md += parms.tabs[i].to_markdown(clean=False)
                 if EXTRACT_WORDS:
                     # for "words" extraction, add table cells as line rects
@@ -926,6 +948,7 @@ def to_markdown(
         parms.img_rects.extend(vg_clusters0)
         parms.img_rects = sorted(set(parms.img_rects), key=lambda r: (r.y1, r.x0))
         parms.deleted_images = []
+        parms.deleted_tables = []
         # these may no longer be pairwise disjoint:
         # remove area overlaps by joining into larger rects
         parms.vg_clusters0 = refine_boxes(vg_clusters0)
