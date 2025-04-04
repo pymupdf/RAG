@@ -1,5 +1,23 @@
 # Change Log
 
+## Changes in version 0.0.20
+
+### Fixes:
+
+* [171](https://github.com/pymupdf/RAG/issues/171) - Text rects overlap with tables and images that should be excluded.
+* [189](https://github.com/pymupdf/RAG/issues/189) - The position of the extracted image is incorrect
+* [238](https://github.com/pymupdf/RAG/issues/238) - When text is laid out around the picture, text extraction is missing.
+
+### Other Changes:
+
+* Added **_new parameter_** `ignore_images`: (bool) optional. `True` will not consider images in any way. May be useful for pages where a plethora of images prevents meaningful layout analysis. Typical examples are PowerPoint slides and derived / similar pages.
+
+* Added **_new parameter_** `ignore_graphics`: (bool), optional. `True` will not consider graphics except for table detection. May be useful for pages where a plethora of vector graphics prevents meaningful layout analysis. Typical examples are PowerPoint slides and derived / similar pages.
+
+* Added **_new parameter_** to class `IdentifyHeaders`: Use `max_levels` (integer <= 6) to limit the generation of header tag levels. e.g. `headers = pymupdf4llm.IdentifyHeaders(doc, max_level=3)` ensures that only up to 3 header levels will ever be generated. Any text with a font size less than the value of `###` will be body text. In this case, the markdown generation itself would be coded as `md = pymupdf4llm.to_markdown(doc, hdr_info=headers, ...)`.
+
+* Changed parameter `table_strategy`: When specifying `None`, no effort to detecting tables will be made. This can be useful when tables are of no interest or known to not exist in a given file. This will speed up processing significantly. Be prepared to see more changes and extensions here.
+
 
 ## Changes in version 0.0.19
 
