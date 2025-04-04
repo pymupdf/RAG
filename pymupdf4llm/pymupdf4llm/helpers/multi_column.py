@@ -76,6 +76,7 @@ def column_boxes(
     textpage=None,
     paths=None,
     avoid=None,
+    ignore_images=False,
 ):
     """Determine bboxes which wrap a column on the page.
 
@@ -261,7 +262,9 @@ def column_boxes(
                         continue
 
                     # do not join different backgrounds
-                    if in_bbox_using_cache(prect0, path_rects, cache) != in_bbox_using_cache(prect1, path_rects, cache):
+                    if in_bbox_using_cache(
+                        prect0, path_rects, cache
+                    ) != in_bbox_using_cache(prect1, path_rects, cache):
                         continue
                     temp = prect0 | prect1
                     test = set(
@@ -333,11 +336,12 @@ def column_boxes(
     clip.y1 -= footer_margin  # Remove footer area
     clip.y0 += header_margin  # Remove header area
 
-    paths = [
-        p
-        for p in page.get_drawings()
-        if p["rect"].width < clip.width and p["rect"].height < clip.height
-    ]
+    if paths is None:
+        paths = [
+            p
+            for p in page.get_drawings()
+            if p["rect"].width < clip.width and p["rect"].height < clip.height
+        ]
 
     if textpage is None:
         textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
@@ -371,8 +375,9 @@ def column_boxes(
     path_rects.sort(key=lambda b: (b.y0, b.x0))
 
     # bboxes of images on page, no need to sort them
-    for item in page.get_images():
-        img_bboxes.extend(page.get_image_rects(item[0]))
+    if ignore_images is False:
+        for item in page.get_images():
+            img_bboxes.extend(page.get_image_rects(item[0]))
 
     # blocks of text on page
     blocks = textpage.extractDICT()["blocks"]
@@ -433,7 +438,9 @@ def column_boxes(
                 continue
 
             # never join across different background colors
-            if in_bbox_using_cache(nbb, path_rects, cache) != in_bbox_using_cache(bb, path_rects, cache):
+            if in_bbox_using_cache(nbb, path_rects, cache) != in_bbox_using_cache(
+                bb, path_rects, cache
+            ):
                 continue
 
             temp = bb | nbb  # temporary extension of new block

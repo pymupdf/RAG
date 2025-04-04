@@ -18,7 +18,7 @@ the text in markdwn format as well.
 
 Dependencies
 -------------
-PyMuPDF v1.25.4 or later
+PyMuPDF v1.25.5 or later
 
 Copyright and License
 ----------------------
@@ -47,6 +47,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 
 pymupdf.TOOLS.unset_quad_corrections(True)
+
 # Characters recognized as bullets when starting a line.
 bullet = tuple(
     [
@@ -85,7 +86,8 @@ class IdentifyHeaders:
         self,
         doc: str,
         pages: list = None,
-        body_limit: float = 12,
+        body_limit: float = 11,  # default if no text found
+        max_levels: int = 6,  # accept this many header levels
     ):
         """Read all text and make a dictionary of fontsizes.
 
@@ -94,6 +96,8 @@ class IdentifyHeaders:
             pages: consider these page numbers only
             body_limit: treat text with larger font size as a header
         """
+        if not isinstance(max_levels, int) or max_levels not in range(1, 7):
+            raise ValueError("max_levels must be an integer between 1 and 6")
         if isinstance(doc, pymupdf.Document):
             mydoc = doc
         else:
@@ -113,8 +117,8 @@ class IdentifyHeaders:
                 for s in l["spans"]
                 if not is_white(s["text"])
             ]:
-                fontsz = round(span["size"])
-                fontsizes[fontsz] += len(span["text"].strip())
+                fontsz = round(span["size"])  # # compute rounded fontsize
+                fontsizes[fontsz] += len(span["text"].strip())  # add character count
 
         if mydoc != doc:
             # if opened here, close it now
@@ -124,15 +128,14 @@ class IdentifyHeaders:
         self.header_id = {}
 
         # If not provided, choose the most frequent font size as body text.
-        # If no text at all on all pages, just use 12.
+        # If no text at all on all pages, just use body_limit.
         # In any case all fonts not exceeding
         temp = sorted(
-            [(k, v) for k, v in fontsizes.items()],
-            key=lambda i: i[1],
-            reverse=True,
+            [(k, v) for k, v in fontsizes.items()], key=lambda i: (i[1], i[0])
         )
         if temp:
-            self.body_limit = min(body_limit, temp[0][0])
+            # most frequent font size
+            self.body_limit = min(body_limit, temp[-1][0])
         else:
             self.body_limit = body_limit
 
@@ -140,11 +143,12 @@ class IdentifyHeaders:
         sizes = sorted(
             [f for f in fontsizes.keys() if f > self.body_limit],
             reverse=True,
-        )[:6]
+        )[:max_levels]
+        self.body_limit = min(self.body_limit, sizes[-1] - 1 if sizes else body_limit)
 
         # make the header tag dictionary
-        for i, size in enumerate(sizes):
-            self.header_id[size] = "#" * (i + 1) + " "
+        for i, size in enumerate(sizes, start=1):
+            self.header_id[size] = "#" * i + " "
 
     def get_header_id(self, span: dict, page=None) -> str:
         """Return appropriate markdown header prefix.
@@ -153,12 +157,7 @@ class IdentifyHeaders:
         markdown header prefix string of 0 to n concatenated '#' characters.
         """
         fontsize = round(span["size"])  # compute fontsize
-        if fontsize <= self.body_limit:  # shortcut for body text
-            return ""
         hdr_id = self.header_id.get(fontsize, "")
-        # If no header but larger than body text, assign <h6>.
-        if not hdr_id and fontsize > self.body_limit:
-            hdr_id = "###### "
         return hdr_id
 
 
@@ -238,6 +237,8 @@ def to_markdown(
     hdr_info=None,
     write_images=False,
     embed_images=False,
+    ignore_images=False,
+    ignore_graphics=False,
     image_path="",
     image_format="png",
     image_size_limit=0.05,
@@ -304,6 +305,8 @@ def to_markdown(
     FILENAME = doc.name if filename is None else filename
     GRAPHICS_LIMIT = graphics_limit
     FONTSIZE_LIMIT = fontsize_limit
+    IGNORE_IMAGES = ignore_images
+    IGNORE_GRAPHICS = ignore_graphics
 
     # for reflowable documents allow making 1 page for the whole document
     if doc.is_reflowable:
@@ -425,19 +428,13 @@ def to_markdown(
             clip = parms.clip
         out_string = ""
         # This is a list of tuples (linerect, spanlist)
+
+        nlines = get_raw_lines(parms.textpage, clip=clip, tolerance=3)
         nlines = [
-            l
-            for l in get_raw_lines(parms.textpage, clip=clip, tolerance=3)
-            if not intersects_rects(l[0], parms.tab_rects.values())
+            l for l in nlines if not intersects_rects(l[0], parms.tab_rects.values())
         ]
 
-        parms.line_rects.extend(
-            [
-                l[0]
-                for l in nlines
-                if not intersects_rects(l[0], parms.tab_rects.values())
-            ]
-        )  # store line rectangles
+        parms.line_rects.extend([l[0] for l in nlines])  # store line rectangles
 
         prev_lrect = None  # previous line rectangle
         prev_bno = -1  # previous block number of line
@@ -463,6 +460,7 @@ def to_markdown(
                             0
                             or lrect.x0 <= tab_rect.x0 < lrect.x1
                             or lrect.x0 < tab_rect.x1 <= lrect.x1
+                            or tab_rect.x0 <= lrect.x0 < lrect.x1 <= tab_rect.x1
                         )
                     ],
                     key=lambda j: (j[1].y1, j[1].x0),
@@ -493,7 +491,12 @@ def to_markdown(
                     if i in parms.deleted_images:
                         continue
                     r = parms.img_rects[i]
-                    if r.y1 <= lrect.y0 and not (r & lrect).is_empty:
+                    if r.y1 <= lrect.y0 and (
+                        0
+                        or lrect.x0 <= r.x0 < lrect.x1
+                        or lrect.x0 < r.x1 <= lrect.x1
+                        or r.x0 <= lrect.x0 < lrect.x1 <= r.x1
+                    ):
                         pathname = save_image(parms, r, i)
                         if pathname:
                             out_string += GRAPHICS_TEXT % pathname
@@ -565,6 +568,8 @@ def to_markdown(
                 prev_hdr_string = hdr_string
                 continue
 
+            prev_hdr_string = hdr_string
+
             span0 = spans[0]
             bno = span0["block"]  # block number of line
             if bno != prev_bno:
@@ -620,12 +625,8 @@ def to_markdown(
                 else:
                     text = f"{hdr_string}{prefix}{s['text'].strip()}{suffix} "
                 if text.startswith(bullet):
-                    text = text[1:]
-                    if len(text) > 1 and text[1] == " ":
-                        t = "-"
-                    else:
-                        t = "- "
-                    text = t + text[1:]
+                    text = "- " + text[1:]
+                    text = text.replace("  ", " ")
                     dist = span0["bbox"][0] - clip.x0
                     cwidth = (span0["bbox"][2] - span0["bbox"][0]) / len(span0["text"])
                     if cwidth == 0.0:
@@ -831,7 +832,9 @@ def to_markdown(
         nwords.extend(line)
         return nwords
 
-    def get_page_output(doc, pno, margins, textflags, FILENAME):
+    def get_page_output(
+        doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS
+    ):
         """Process one page.
 
         Args:
@@ -868,17 +871,20 @@ def to_markdown(
         parms.textpage = page.get_textpage(flags=textflags, clip=parms.clip)
 
         # extract images on page
-        img_info = page.get_image_info()
+        if not IGNORE_IMAGES:
+            img_info = page.get_image_info()
+        else:
+            img_info = []
         for i in range(len(img_info)):
-            item = img_info[i]
-            bbox = pymupdf.Rect(item["bbox"]) & parms.clip
-            item["bbox"] = +bbox
-            img_info[i] = item
+            img_info[i]["bbox"] = pymupdf.Rect(img_info[i]["bbox"])
         img_info = [
             i
             for i in img_info
             if i["bbox"].width >= image_size_limit * parms.clip.width
             and i["bbox"].height >= image_size_limit * parms.clip.height
+            and i["bbox"] in parms.clip
+            and i["bbox"].width > 3
+            and i["bbox"].height > 3
         ]
         # sort descending by image area size
         img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
@@ -898,7 +904,10 @@ def to_markdown(
         parms.img_rects = [i["bbox"] for i in parms.images]
 
         # Locate all tables on page
-        parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
+        if table_strategy is None:
+            parms.tabs = []
+        else:
+            parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
         # Make a list of table boundary boxes.
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
@@ -917,15 +926,18 @@ def to_markdown(
         # Select paths not intersecting any table.
         # Ignore full page graphics.
         # Ignore fill paths having the background color.
-        paths = [
-            p
-            for p in page.get_drawings()
-            if not intersects_rects(p["rect"], parms.tab_rects0)
-            and p["rect"] in parms.clip
-            and 3 < p["rect"].width < parms.clip.width
-            and 3 < p["rect"].height < parms.clip.height
-            and not (p["type"] == "f" and p["fill"] == parms.bg_color)
-        ]
+        if not IGNORE_GRAPHICS:
+            paths = [
+                p
+                for p in page.get_drawings()
+                if not intersects_rects(p["rect"], parms.tab_rects0)
+                and p["rect"] in parms.clip
+                and 3 < p["rect"].width < parms.clip.width
+                and 3 < p["rect"].height < parms.clip.height
+                and not (p["type"] == "f" and p["fill"] == parms.bg_color)
+            ]
+        else:
+            paths = []
 
         # catch too-many-graphics situation
         if GRAPHICS_LIMIT and len(paths) > GRAPHICS_LIMIT:
@@ -959,11 +971,12 @@ def to_markdown(
         text_rects = column_boxes(
             parms.page,
             paths=parms.actual_paths,
-            no_image_text=True,
+            no_image_text=not force_text,
             textpage=parms.textpage,
             avoid=parms.tab_rects0 + parms.vg_clusters0,
             footer_margin=margins[3],
             header_margin=margins[1],
+            ignore_images=IGNORE_IMAGES,
         )
 
         """
@@ -1039,6 +1052,7 @@ def to_markdown(
         0
         | mupdf.FZ_STEXT_CLIP
         | mupdf.FZ_STEXT_ACCURATE_BBOXES
+        | mupdf.FZ_STEXT_IGNORE_ACTUALTEXT
         | 32768  # mupdf.FZ_STEXT_COLLECT_STYLES
     )
     # optionally replace 0xFFFD by glyph number
@@ -1049,7 +1063,9 @@ def to_markdown(
         print(f"Processing {FILENAME}...")
         pages = ProgressBar(pages)
     for pno in pages:
-        parms = get_page_output(doc, pno, margins, textflags, FILENAME)
+        parms = get_page_output(
+            doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS
+        )
         if page_chunks is False:
             document_output += parms.md_string
         else:
@@ -1137,7 +1153,7 @@ if __name__ == "__main__":
     import time
 
     try:
-        filename = "markdown.pdf"
+        filename = "slide12.pdf"
     except IndexError:
         print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()
@@ -1168,8 +1184,11 @@ if __name__ == "__main__":
     md_string = to_markdown(
         doc,
         pages=pages,
-        write_images=True,
-        force_text=False,
+        # write_images=True,
+        force_text=True,
+        ignore_images=True,
+        ignore_graphics=True,
+        table_strategy=None,
     )
     FILENAME = doc.name
     # output to a text file with extension ".md"
