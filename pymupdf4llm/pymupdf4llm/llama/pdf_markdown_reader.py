@@ -61,7 +61,7 @@ class PDFMarkdownReader(BaseReader):
         for page in doc:
             docs.append(
                 self._process_doc_page(
-                    doc, extra_info, file_path, page.number, hdr_info
+                    doc, extra_info, file_path, page.number, hdr_info, **load_kwargs
                 )
             )
         return docs
@@ -76,6 +76,7 @@ class PDFMarkdownReader(BaseReader):
         file_path: str,
         page_number: int,
         hdr_info: IdentifyHeaders,
+        **load_kwargs: Any,
     ):
         """Processes a single page of a PDF document."""
         extra_info = self._process_doc_meta(
@@ -86,7 +87,9 @@ class PDFMarkdownReader(BaseReader):
             extra_info = self.meta_filter(extra_info)
 
         text = to_markdown(
-            doc, pages=[page_number], hdr_info=hdr_info, write_images=False
+            doc, pages=[page_number], 
+            hdr_info=hdr_info,
+            **load_kwargs,
         )
         return LlamaIndexDocument(text=text, extra_info=extra_info)
 
