@@ -64,7 +64,7 @@ import string
 
 import pymupdf
 
-pymupdf.TOOLS.set_small_glyph_heights(True)
+pymupdf.TOOLS.unset_quad_corrections(True)
 
 
 def column_boxes(
@@ -237,7 +237,7 @@ def column_boxes(
             if (
                 abs(r.x0 - r0.x0) <= 3
                 and abs(r.x1 - r0.x1) <= 3
-                and abs(r0.y1 - r.y0) <= 12
+                and abs(r0.y1 - r.y0) <= 10
             ):
                 r0 |= r
                 new_rects[-1] = r0
@@ -344,7 +344,7 @@ def column_boxes(
         ]
 
     if textpage is None:
-        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXTFLAGS_TEXT)
+        textpage = page.get_textpage(clip=clip, flags=pymupdf.TEXT_ACCURATE_BBOXES)
 
     bboxes = []
 
@@ -417,7 +417,6 @@ def column_boxes(
     # immediately return of no text found
     if bboxes == []:
         return []
-
     # --------------------------------------------------------------------
     # Join bboxes to establish some column structure
     # --------------------------------------------------------------------
@@ -467,7 +466,8 @@ def column_boxes(
         return nblocks
 
     # several phases of rectangle joining
-    nblocks = join_rects_phase1(nblocks)
+    # TODO: disabled for now as too aggressive:
+    # nblocks = join_rects_phase1(nblocks)
     nblocks = join_rects_phase2(nblocks)
     nblocks = join_rects_phase3(nblocks, path_rects, cache)
 
@@ -491,14 +491,14 @@ if __name__ == "__main__":
     # check if footer margin is given
     if len(sys.argv) > 2:
         footer_margin = int(sys.argv[2])
-    else:  # use default vaue
-        footer_margin = 50
+    else:
+        footer_margin = 0
 
     # check if header margin is given
     if len(sys.argv) > 3:
         header_margin = int(sys.argv[3])
-    else:  # use default vaue
-        header_margin = 50
+    else:
+        header_margin = 0
 
     # open document
     doc = pymupdf.open(filename)
