@@ -157,6 +157,8 @@ class IdentifyHeaders:
         markdown header prefix string of 0 to n concatenated '#' characters.
         """
         fontsize = round(span["size"])  # compute fontsize
+        if fontsize <= self.body_limit:
+            return ""
         hdr_id = self.header_id.get(fontsize, "")
         return hdr_id
 
@@ -278,7 +280,7 @@ def to_markdown(
         ignore_code: (bool) suppress code-like formatting (mono-space fonts)
         extract_words: (bool) include "words"-like output in page chunks
         show_progress: (bool) print progress as each page is processed.
-        glyph_fallback: (bool) replace the Invalid Unicode by glyph number.
+        use_glyphs: (bool) replace the Invalid Unicode by glyph numbers.
 
     """
     if write_images is False and embed_images is False and force_text is False:
@@ -427,8 +429,8 @@ def to_markdown(
         if clip is None:
             clip = parms.clip
         out_string = ""
-        # This is a list of tuples (linerect, spanlist)
 
+        # This is a list of tuples (linerect, spanlist)
         nlines = get_raw_lines(parms.textpage, clip=clip, tolerance=3)
         nlines = [
             l for l in nlines if not intersects_rects(l[0], parms.tab_rects.values())
@@ -450,21 +452,18 @@ def to_markdown(
             # Pick up tables ABOVE this text block
             # ------------------------------------------------------------
             if tables:
-                tab_candidates = sorted(
-                    [
-                        (i, tab_rect)
-                        for i, tab_rect in parms.tab_rects.items()
-                        if tab_rect.y1 <= lrect.y0
-                        and i not in parms.deleted_tables
-                        and (
-                            0
-                            or lrect.x0 <= tab_rect.x0 < lrect.x1
-                            or lrect.x0 < tab_rect.x1 <= lrect.x1
-                            or tab_rect.x0 <= lrect.x0 < lrect.x1 <= tab_rect.x1
-                        )
-                    ],
-                    key=lambda j: (j[1].y1, j[1].x0),
-                )
+                tab_candidates = [
+                    (i, tab_rect)
+                    for i, tab_rect in parms.tab_rects.items()
+                    if tab_rect.y1 <= lrect.y0
+                    and i not in parms.written_tables
+                    and (
+                        0
+                        or lrect.x0 <= tab_rect.x0 < lrect.x1
+                        or lrect.x0 < tab_rect.x1 <= lrect.x1
+                        or tab_rect.x0 <= lrect.x0 < lrect.x1 <= tab_rect.x1
+                    )
+                ]
                 for i, _ in tab_candidates:
                     out_string += "\n" + parms.tabs[i].to_markdown(clean=False) + "\n"
                     if EXTRACT_WORDS:
@@ -481,14 +480,14 @@ def to_markdown(
                             key=lambda c: (c.y1, c.x0),
                         )
                         parms.line_rects.extend(cells)
-                    parms.deleted_tables.append(i)
+                    parms.written_tables.append(i)
 
             # ------------------------------------------------------------
             # Pick up images / graphics ABOVE this text block
             # ------------------------------------------------------------
             if images:
                 for i in range(len(parms.img_rects)):
-                    if i in parms.deleted_images:
+                    if i in parms.written_images:
                         continue
                     r = parms.img_rects[i]
                     if r.y1 <= lrect.y0 and (
@@ -502,7 +501,7 @@ def to_markdown(
                             out_string += GRAPHICS_TEXT % pathname
 
                         # recursive invocation
-                        if force_text:
+                        if force_text is True:
                             img_txt = write_text(
                                 parms,
                                 r,
@@ -513,7 +512,7 @@ def to_markdown(
 
                             if not is_white(img_txt):
                                 out_string += img_txt
-                        parms.deleted_images.append(i)
+                        parms.written_images.append(i)
 
             parms.line_rects.append(lrect)
 
@@ -668,7 +667,7 @@ def to_markdown(
                 [j for j in parms.tab_rects.items() if j[1].y1 <= text_rect.y0],
                 key=lambda j: (j[1].y1, j[1].x0),
             ):
-                if i in parms.deleted_tables:
+                if i in parms.written_tables:
                     continue
                 this_md += parms.tabs[i].to_markdown(clean=False)
                 if EXTRACT_WORDS:
@@ -685,14 +684,11 @@ def to_markdown(
                         key=lambda c: (c.y1, c.x0),
                     )
                     parms.line_rects.extend(cells)
-                del parms.tab_rects[i]  # do not touch this table twice
+                parms.written_tables.append(i)  # do not touch this table twice
 
         else:  # output all remaining tables
-            for i, trect in sorted(
-                parms.tab_rects.items(),
-                key=lambda j: (j[1].y1, j[1].x0),
-            ):
-                if i in parms.deleted_tables:
+            for i, trect in parms.tab_rects.items():
+                if i in parms.written_tables:
                     continue
                 this_md += parms.tabs[i].to_markdown(clean=False)
                 if EXTRACT_WORDS:
@@ -709,10 +705,10 @@ def to_markdown(
                         key=lambda c: (c.y1, c.x0),
                     )
                     parms.line_rects.extend(cells)
-                del parms.tab_rects[i]  # do not touch this table twice
+                parms.written_tables.append(i)  # do not touch this table twice
         return this_md
 
-    def output_images(parms, text_rect):
+    def output_images(parms, text_rect, force_text):
         """Output images and graphics above text rectangle."""
         if not parms.img_rects:
             return ""
@@ -723,10 +719,10 @@ def to_markdown(
                     continue
                 if img_rect.x0 >= text_rect.x1 or img_rect.x1 <= text_rect.x0:
                     continue
-                if i in parms.deleted_images:
+                if i in parms.written_images:
                     continue
                 pathname = save_image(parms, img_rect, i)
-                parms.deleted_images.append(i)  # do not touch this image twice
+                parms.written_images.append(i)  # do not touch this image twice
                 if pathname:
                     this_md += GRAPHICS_TEXT % pathname
                 if force_text:
@@ -741,10 +737,10 @@ def to_markdown(
                         this_md += img_txt
         else:  # output all remaining images
             for i, img_rect in enumerate(parms.img_rects):
-                if i in parms.deleted_images:
+                if i in parms.written_images:
                     continue
                 pathname = save_image(parms, img_rect, i)
-                parms.deleted_images.append(i)  # do not touch this image twice
+                parms.written_images.append(i)  # do not touch this image twice
                 if pathname:
                     this_md += GRAPHICS_TEXT % pathname
                 if force_text:
@@ -867,6 +863,9 @@ def to_markdown(
         # extract external links on page
         parms.links = [l for l in page.get_links() if l["kind"] == pymupdf.LINK_URI]
 
+        # extract annotation rectangles on page
+        parms.annot_rects = [a.rect for a in page.annots()]
+
         # make a TextPage for all later extractions
         parms.textpage = page.get_textpage(flags=textflags, clip=parms.clip)
 
@@ -904,10 +903,20 @@ def to_markdown(
         parms.img_rects = [i["bbox"] for i in parms.images]
 
         # Locate all tables on page
+        parms.written_tables = []  # stores already written tables
         if table_strategy is None:
             parms.tabs = []
         else:
             parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
+            del_this = []
+            for i, t in enumerate(parms.tabs):
+                if t.row_count < 2 or t.col_count < 2:
+                    # ignore tables with too few rows or columns
+                    del_this.append(i)
+            for i in sorted(del_this, reverse=True):
+                del parms.tabs.tables[i]
+            parms.tabs.tables.sort(key=lambda t: (t.bbox[0], t.bbox[1]))
+
         # Make a list of table boundary boxes.
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
@@ -930,11 +939,13 @@ def to_markdown(
             paths = [
                 p
                 for p in page.get_drawings()
-                if not intersects_rects(p["rect"], parms.tab_rects0)
-                and p["rect"] in parms.clip
-                and 3 < p["rect"].width < parms.clip.width
-                and 3 < p["rect"].height < parms.clip.height
-                and not (p["type"] == "f" and p["fill"] == parms.bg_color)
+                if p["rect"] in parms.clip
+                and p["rect"].width < parms.clip.width
+                and p["rect"].height < parms.clip.height
+                and (p["rect"].width > 3 or p["rect"].height > 3)
+                and not (p["fill"] == parms.bg_color and p["fill"] != None)
+                and not intersects_rects(p["rect"], parms.tab_rects0)
+                and not intersects_rects(p["rect"], parms.annot_rects)
             ]
         else:
             paths = []
@@ -948,19 +959,19 @@ def to_markdown(
         vg_clusters0 = []  # worthwhile vector graphics go here
 
         # walk through all vector graphics outside any table
-        for bbox in refine_boxes(page.cluster_drawings(drawings=paths)):
+        clusters = page.cluster_drawings(drawings=paths)
+        for bbox in clusters:
             if is_significant(bbox, paths):
                 vg_clusters0.append(bbox)
 
         # remove paths that are not in some relevant graphic
         parms.actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters0)]
 
-        # also add image rectangles to the list
+        # also add image rectangles to the list and vice versa
         vg_clusters0.extend(parms.img_rects)
         parms.img_rects.extend(vg_clusters0)
         parms.img_rects = sorted(set(parms.img_rects), key=lambda r: (r.y1, r.x0))
-        parms.deleted_images = []
-        parms.deleted_tables = []
+        parms.written_images = []
         # these may no longer be pairwise disjoint:
         # remove area overlaps by joining into larger rects
         parms.vg_clusters0 = refine_boxes(vg_clusters0)
@@ -989,7 +1000,7 @@ def to_markdown(
         for text_rect in text_rects:
             # output tables above this rectangle
             parms.md_string += output_tables(parms, text_rect)
-            parms.md_string += output_images(parms, text_rect)
+            parms.md_string += output_images(parms, text_rect, force_text)
 
             # output text inside this rectangle
             parms.md_string += write_text(
@@ -1004,7 +1015,7 @@ def to_markdown(
 
         # write any remaining tables and images
         parms.md_string += output_tables(parms, None)
-        parms.md_string += output_images(parms, None)
+        parms.md_string += output_images(parms, None, force_text)
 
         parms.md_string += "\n-----\n\n"
         while parms.md_string.startswith("\n"):
@@ -1153,7 +1164,7 @@ if __name__ == "__main__":
     import time
 
     try:
-        filename = "slide12.pdf"
+        filename = "sample_document.pdf"
     except IndexError:
         print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()

@@ -1,5 +1,14 @@
 # Change Log
 
+## Changes in version 0.0.21
+
+### Fixes:
+
+* [116](https://github.com/pymupdf/RAG/issues/116) - Handling Graphical Images & Superscripts
+
+### Other Changes:
+
+
 ## Changes in version 0.0.20
 
 ### Fixes:
