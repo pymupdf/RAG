@@ -4,6 +4,7 @@
 
 ### Fixes:
 
+* [251](https://github.com/pymupdf/RAG/issues/251) - Images a little larger than the page size are being ignored
 * [255](https://github.com/pymupdf/RAG/issues/255) - Single-row/column tables are skipped
 * [258](https://github.com/pymupdf/RAG/issues/258) - Pymupdf4llm to_markdown crashes on some documents
 
