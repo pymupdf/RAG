@@ -71,8 +71,8 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
         line.sort(key=lambda s: s["bbox"].x0)
         # join spans, delete duplicates
         for i in range(len(line) - 1, 0, -1):  # iterate back to front
-            s0 = line[i - 1]
-            s1 = line[i]
+            s0 = line[i - 1]  # preceding span
+            s1 = line[i]  # this span
             # "delta" depends on the font size. Spans  will be joined if
             # no more than 10% of the font size separates them and important
             # attributes are the same.
@@ -107,12 +107,11 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
                 continue
             for sno, s in enumerate(line["spans"]):  # the numered spans
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
-                mpoint = (sbbox.tl + sbbox.br) / 2  # middle point
-                if mpoint not in clip:
-                    continue
                 if is_white(s["text"]):  # ignore white text
                     continue
                 if s["alpha"] == 0:  # ignore invisible text
+                    continue
+                if abs(sbbox & clip) < abs(sbbox) * 0.8:  # if not in clip
                     continue
                 if s["flags"] & 1 == 1:  # if a superscript, modify bbox
                     # with that of the preceding or following span
