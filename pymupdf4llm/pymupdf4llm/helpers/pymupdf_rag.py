@@ -144,11 +144,12 @@ class IdentifyHeaders:
             [f for f in fontsizes.keys() if f > self.body_limit],
             reverse=True,
         )[:max_levels]
-        self.body_limit = min(self.body_limit, sizes[-1] - 1 if sizes else body_limit)
 
         # make the header tag dictionary
         for i, size in enumerate(sizes, start=1):
             self.header_id[size] = "#" * i + " "
+        if self.header_id.keys():
+            self.body_limit = min(self.header_id.keys()) - 1
 
     def get_header_id(self, span: dict, page=None) -> str:
         """Return appropriate markdown header prefix.
@@ -161,6 +162,54 @@ class IdentifyHeaders:
             return ""
         hdr_id = self.header_id.get(fontsize, "")
         return hdr_id
+
+
+class TocHeaders:
+    """Compute data for identifying header text.
+
+    This is an alternative to IdentifyHeaders. Instead of running through the
+    full document to identify font sizes, it uses the document's Table Of
+    Contents (TOC) to identify headers on pages.
+    Like IdentifyHeaders, this also is no guarantee to find headers, but it
+    is a good change for appropriately build documents. In such cases, this
+    method can be very much faster and more accurate, because we can use the
+    hierarchy level of TOC items directly to ientify the header level.
+    Examples where this approach works very well are the Adobe PDF documents.
+    """
+
+    def __init__(self, doc: str):
+        """Read and store the TOC of the document."""
+        if isinstance(doc, pymupdf.Document):
+            mydoc = doc
+        else:
+            mydoc = pymupdf.open(doc)
+
+        self.TOC = doc.get_toc()
+        if mydoc != doc:
+            # if opened here, close it now
+            mydoc.close()
+
+    def get_header_id(self, span: dict, page=None) -> str:
+        """Return appropriate markdown header prefix.
+
+        Given a text span from a "dict"/"rawdict" extraction, determine the
+        markdown header prefix string of 0 to n concatenated '#' characters.
+        """
+        if page is None:
+            return ""
+        # check if this page has TOC entries with an actual title
+        my_toc = [t for t in self.TOC if t[1] and t[-1] == page.number + 1]
+        if not my_toc:
+            return ""
+        # check if the span matches a TOC entry
+        text = span["text"].strip()
+        for t in toc:
+            title = t[1].strip()  # title of TOC entry
+            lvl = t[0]  # level of TOC entry
+            if text.startswith(title) or title.startswith(text):
+                # found a match: return the header tag
+                return "#" * lvl + " "
+        return ""
 
 
 # store relevant parameters here
@@ -216,19 +265,33 @@ def is_significant(box, paths):
     else:
         d = box.height * 0.025
     nbox = box + (d, d, -d, -d)  # nbox covers 90% of box interior
-    # paths contained in box:
+    # paths contained in, but not equal to box:
     my_paths = [p for p in paths if p["rect"] in box and p["rect"] != box]
     for p in my_paths:
         rect = p["rect"]
-        if not (rect & nbox).is_empty:  # intersects interior: significant!
+        if (
+            not (rect & nbox).is_empty and not p["rect"].is_empty
+        ):  # intersects interior: significant!
             return True
         # Remaining case: a horizontal or vertical line
         # horizontal line:
-        if rect.y0 == rect.y1 and rect.x0 < nbox.x1 and rect.x1 > nbox.x0:
-            return True
+        if (
+            1
+            and rect.y0 == rect.y1
+            and nbox.y0 <= rect.y0 <= nbox.y1
+            and rect.x0 < nbox.x1
+            and rect.x1 > nbox.x0
+        ):
+            pass  # return True
         # vertical line
-        if rect.x0 == rect.x1 and rect.y0 < nbox.y1 and rect.y1 > nbox.y0:
-            return True
+        if (
+            1
+            and rect.x0 == rect.x1
+            and nbox.x0 <= rect.x0 <= nbox.x1
+            and rect.y0 < nbox.y1
+            and rect.y1 > nbox.y0
+        ):
+            pass  # return True
     return False
 
 
@@ -654,8 +717,10 @@ def to_markdown(
     def intersects_rects(rect, rect_list):
         """Check if middle of rect is contained in a rect of the list."""
         delta = (-1, -1, 1, 1)  # enlarge rect_list members somewhat by this
+        enlarged = rect + delta
+        abs_enlarged = abs(enlarged) * 0.5
         for i, r in enumerate(rect_list, start=1):
-            if (rect.tl + rect.br) / 2 in r + delta:  # middle point is inside r
+            if abs(enlarged & r) > abs_enlarged:
                 return i
         return 0
 
@@ -764,31 +829,32 @@ def to_markdown(
         page. If they are unicolor and of the same color, we assume this to
         be the background color.
         """
-        pix = page.get_pixmap(clip=(0, 0, 10, 10))
-        if not pix.is_unicolor:
+        pix = page.get_pixmap(
+            clip=(page.rect.x0, page.rect.y0, page.rect.x0 + 10, page.rect.y0 + 10)
+        )
+        if not pix.samples or not pix.is_unicolor:
             return None
         pixel_ul = pix.pixel(0, 0)  # upper left color
-        pix = page.get_pixmap(clip=(page.rect.width - 10, 0, page.rect.width, 10))
-        if not pix.is_unicolor:
+        pix = page.get_pixmap(
+            clip=(page.rect.x1 - 10, page.rect.y0, page.rect.x1, page.rect.y0 + 10)
+        )
+        if not pix.samples or not pix.is_unicolor:
             return None
         pixel_ur = pix.pixel(0, 0)  # upper right color
         if not pixel_ul == pixel_ur:
             return None
-        pix = page.get_pixmap(clip=(0, page.rect.height - 10, 10, page.rect.height))
-        if not pix.is_unicolor:
+        pix = page.get_pixmap(
+            clip=(page.rect.x0, page.rect.y1 - 10, page.rect.x0 + 10, page.rect.y1)
+        )
+        if not pix.samples or not pix.is_unicolor:
             return None
         pixel_ll = pix.pixel(0, 0)  # lower left color
         if not pixel_ul == pixel_ll:
             return None
         pix = page.get_pixmap(
-            clip=(
-                page.rect.width - 10,
-                page.rect.height - 10,
-                page.rect.width,
-                page.rect.height,
-            )
+            clip=(page.rect.x1 - 10, page.rect.y1 - 10, page.rect.x1, page.rect.y1)
         )
-        if not pix.is_unicolor:
+        if not pix.samples or not pix.is_unicolor:
             return None
         pixel_lr = pix.pixel(0, 0)  # lower right color
         if not pixel_ul == pixel_lr:
@@ -881,7 +947,7 @@ def to_markdown(
             for i in img_info
             if i["bbox"].width >= image_size_limit * parms.clip.width
             and i["bbox"].height >= image_size_limit * parms.clip.height
-            and i["bbox"] in parms.clip
+            and i["bbox"].intersects(parms.clip)
             and i["bbox"].width > 3
             and i["bbox"].height > 3
         ]
@@ -904,23 +970,23 @@ def to_markdown(
 
         # Locate all tables on page
         parms.written_tables = []  # stores already written tables
+        omitted_table_rects = []
         if table_strategy is None:
             parms.tabs = []
         else:
             parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
-            del_this = []
-            for i, t in enumerate(parms.tabs):
+            # remove tables with too few rows or columns
+            for i in range(len(parms.tabs.tables) - 1, -1, -1):
+                t = parms.tabs.tables[i]
                 if t.row_count < 2 or t.col_count < 2:
-                    # ignore tables with too few rows or columns
-                    del_this.append(i)
-            for i in sorted(del_this, reverse=True):
-                del parms.tabs.tables[i]
+                    omitted_table_rects.append(pymupdf.Rect(t.bbox))
+                    del parms.tabs.tables[i]
             parms.tabs.tables.sort(key=lambda t: (t.bbox[0], t.bbox[1]))
 
         # Make a list of table boundary boxes.
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
-        for i, t in enumerate(parms.tabs):
+        for i, t in enumerate(parms.tabs.tables):
             tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
             tab_dict = {
                 "bbox": tuple(tab_rects[i]),
@@ -944,7 +1010,9 @@ def to_markdown(
                 and p["rect"].height < parms.clip.height
                 and (p["rect"].width > 3 or p["rect"].height > 3)
                 and not (p["fill"] == parms.bg_color and p["fill"] != None)
-                and not intersects_rects(p["rect"], parms.tab_rects0)
+                and not intersects_rects(
+                    p["rect"], parms.tab_rects0 + omitted_table_rects
+                )
                 and not intersects_rects(p["rect"], parms.annot_rects)
             ]
         else:
@@ -977,7 +1045,6 @@ def to_markdown(
         parms.vg_clusters0 = refine_boxes(vg_clusters0)
 
         parms.vg_clusters = dict((i, r) for i, r in enumerate(parms.vg_clusters0))
-
         # identify text bboxes on page, avoiding tables, images and graphics
         text_rects = column_boxes(
             parms.page,

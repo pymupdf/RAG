@@ -1,5 +1,17 @@
 # Change Log
 
+## Changes in version 0.0.22
+
+### Fixes:
+
+* [255](https://github.com/pymupdf/RAG/issues/255) - Single-row/column tables are skipped
+* [258](https://github.com/pymupdf/RAG/issues/258) - Pymupdf4llm to_markdown crashes on some documents
+
+### Other Changes:
+
+* Added class `TocHeaders` as an alternative way for identifying headers.
+
+
 ## Changes in version 0.0.21
 
 ### Fixes:
