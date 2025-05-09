@@ -86,7 +86,7 @@ class IdentifyHeaders:
         self,
         doc: str,
         pages: list = None,
-        body_limit: float = 11,  # default if no text found
+        body_limit: float = 12,  # force this to be body text
         max_levels: int = 6,  # accept this many header levels
     ):
         """Read all text and make a dictionary of fontsizes.
@@ -135,7 +135,7 @@ class IdentifyHeaders:
         )
         if temp:
             # most frequent font size
-            self.body_limit = min(body_limit, temp[-1][0])
+            self.body_limit = max(body_limit, temp[-1][0])
         else:
             self.body_limit = body_limit
 
@@ -203,7 +203,7 @@ class TocHeaders:
             return ""
         # check if the span matches a TOC entry
         text = span["text"].strip()
-        for t in toc:
+        for t in my_toc:
             title = t[1].strip()  # title of TOC entry
             lvl = t[0]  # level of TOC entry
             if text.startswith(title) or title.startswith(text):
@@ -494,7 +494,12 @@ def to_markdown(
         out_string = ""
 
         # This is a list of tuples (linerect, spanlist)
-        nlines = get_raw_lines(parms.textpage, clip=clip, tolerance=3)
+        nlines = get_raw_lines(
+            parms.textpage,
+            clip=clip,
+            tolerance=3,
+            ignore_invisible=not parms.accept_invisible,
+        )
         nlines = [
             l for l in nlines if not intersects_rects(l[0], parms.tab_rects.values())
         ]
@@ -821,6 +826,16 @@ def to_markdown(
 
         return this_md
 
+    def page_is_ocr(page):
+        """Check if page exclusivley contains OCR text.
+
+        For this to be true, all text must be written as "ignore-text".
+        """
+        text_types = set([b[0] for b in page.get_bboxlog() if "text" in b[0]])
+        if text_types == {"ignore-text"}:
+            return True
+        return False
+
     def get_bg_color(page):
         """Determine the background color of the page.
 
@@ -919,6 +934,7 @@ def to_markdown(
         parms.graphics = []
         parms.words = []
         parms.line_rects = []
+        parms.accept_invisible = page_is_ocr(page)  # accept invisible text
 
         # determine background color
         parms.bg_color = get_bg_color(page)
@@ -968,11 +984,17 @@ def to_markdown(
 
         parms.img_rects = [i["bbox"] for i in parms.images]
 
+        # catch too-many-graphics situation
+        graphics_count = len([b for b in page.get_bboxlog() if "path" in b[0]])
+        if GRAPHICS_LIMIT and graphics_count > GRAPHICS_LIMIT:
+            IGNORE_GRAPHICS = True
+            table_strategy = None
+
         # Locate all tables on page
         parms.written_tables = []  # stores already written tables
         omitted_table_rects = []
         if table_strategy is None:
-            parms.tabs = []
+            parms.tabs = None
         else:
             parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
             # remove tables with too few rows or columns
@@ -986,14 +1008,15 @@ def to_markdown(
         # Make a list of table boundary boxes.
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
-        for i, t in enumerate(parms.tabs.tables):
-            tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
-            tab_dict = {
-                "bbox": tuple(tab_rects[i]),
-                "rows": t.row_count,
-                "columns": t.col_count,
-            }
-            parms.tables.append(tab_dict)
+        if parms.tabs is not None:
+            for i, t in enumerate(parms.tabs.tables):
+                tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
+                tab_dict = {
+                    "bbox": tuple(tab_rects[i]),
+                    "rows": t.row_count,
+                    "columns": t.col_count,
+                }
+                parms.tables.append(tab_dict)
         parms.tab_rects = tab_rects
         # list of table rectangles
         parms.tab_rects0 = list(tab_rects.values())
@@ -1084,7 +1107,6 @@ def to_markdown(
         parms.md_string += output_tables(parms, None)
         parms.md_string += output_images(parms, None, force_text)
 
-        parms.md_string += "\n-----\n\n"
         while parms.md_string.startswith("\n"):
             parms.md_string = parms.md_string[1:]
         parms.md_string = parms.md_string.replace(chr(0), chr(0xFFFD))
