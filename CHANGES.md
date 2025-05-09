@@ -1,5 +1,18 @@
 # Change Log
 
+## Changes in version 0.0.23
+
+### Fixes:
+
+* [265](https://github.com/pymupdf/RAG/issues/265) - Code error correction
+* [263](https://github.com/pymupdf/RAG/issues/263) - Table Strategy = None raises error
+* [261](https://github.com/pymupdf/RAG/issues/261) - wrong markdown in latest pymupdf versions
+
+### Other Changes:
+
+* Highspeed vector graphics count: if `graphics_limit` is specified, drawings are no longer extracted for counting purposes.
+
+
 ## Changes in version 0.0.22
 
 ### Fixes:
