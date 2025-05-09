@@ -24,7 +24,12 @@ def is_white(text):
     return WHITE.issuperset(text)
 
 
-def get_raw_lines(textpage, clip=None, tolerance=3):
+def get_raw_lines(
+    textpage,
+    clip=None,
+    tolerance=3,
+    ignore_invisible=True,
+):
     """Extract the text spans from a TextPage in natural reading sequence.
 
     All spans roughly on the same line are joined to generate an improved line.
@@ -43,6 +48,8 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
               turn may be based on a sub-rectangle of the full page).
         tolerance: (float) put spans on the same line if their top or bottom
               coordinate differ by no more than this value.
+        ignore_invisible: (bool) if True, invisible text is ignored. This may
+              have been set to False for pages with OCR text.
 
     Returns:
         A sorted list of items (rect, [spans]), each representing one line. The
@@ -109,7 +116,8 @@ def get_raw_lines(textpage, clip=None, tolerance=3):
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
                 if is_white(s["text"]):  # ignore white text
                     continue
-                if s["alpha"] == 0:  # ignore invisible text
+                # ignore invisible text
+                if s["alpha"] == 0 and ignore_invisible:
                     continue
                 if abs(sbbox & clip) < abs(sbbox) * 0.8:  # if not in clip
                     continue
