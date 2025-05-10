@@ -4,7 +4,7 @@
 
 ### Fixes:
 
-* [270](https://github.com/pymupdf/RAG/issues/270) - Fix UnboundLocalError for table_strategy in pymupdf_rag.py
+* Fixing "UnboundLocalError"
 
 ### Other Changes:
 
