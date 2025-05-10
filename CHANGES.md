@@ -1,5 +1,15 @@
 # Change Log
 
+## Changes in version 0.0.24
+
+### Fixes:
+
+* [270](https://github.com/pymupdf/RAG/issues/270) - Fix UnboundLocalError for table_strategy in pymupdf_rag.py
+
+### Other Changes:
+
+
+
 ## Changes in version 0.0.23
 
 ### Fixes:

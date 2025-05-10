@@ -988,12 +988,12 @@ def to_markdown(
         graphics_count = len([b for b in page.get_bboxlog() if "path" in b[0]])
         if GRAPHICS_LIMIT and graphics_count > GRAPHICS_LIMIT:
             IGNORE_GRAPHICS = True
-            table_strategy = None
 
         # Locate all tables on page
         parms.written_tables = []  # stores already written tables
         omitted_table_rects = []
-        if table_strategy is None:
+        if IGNORE_GRAPHICS or not table_strategy:
+            # do not try to extract tables
             parms.tabs = None
         else:
             parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
@@ -1147,7 +1147,7 @@ def to_markdown(
     toc = doc.get_toc()
 
     # Text extraction flags:
-    # omit invisible text, collect styles, use accurate bounding boxes
+    # omit clipped text, collect styles, use accurate bounding boxes
     textflags = (
         0
         | mupdf.FZ_STEXT_CLIP
