@@ -910,7 +910,7 @@ def to_markdown(
         return nwords
 
     def get_page_output(
-        doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS
+        doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS, table_strategy
     ):
         """Process one page.
 
@@ -1164,7 +1164,7 @@ def to_markdown(
         pages = ProgressBar(pages)
     for pno in pages:
         parms = get_page_output(
-            doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS
+            doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS, table_strategy
         )
         if page_chunks is False:
             document_output += parms.md_string
