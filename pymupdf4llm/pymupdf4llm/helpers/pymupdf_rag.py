@@ -43,6 +43,7 @@ from pymupdf import mupdf
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
 from pymupdf4llm.helpers.progress import ProgressBar
+from pymupdf4llm.helpers.single_long_page import SingleLongPageDocument
 from dataclasses import dataclass
 from collections import defaultdict
 
@@ -321,6 +322,7 @@ def to_markdown(
     extract_words=False,
     show_progress=False,
     use_glyphs=False,
+    parse_single_long_page=False,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -1159,9 +1161,14 @@ def to_markdown(
     if use_glyphs:
         textflags |= mupdf.FZ_STEXT_USE_GID_FOR_UNKNOWN_UNICODE
 
-    if show_progress:
+    if show_progress & parse_single_long_page == False:
         print(f"Processing {FILENAME}...")
         pages = ProgressBar(pages)
+    if parse_single_long_page:
+        doc = SingleLongPageDocument(doc)
+        pages = range(doc.page_count)
+        if show_progress:
+            print(f"Processing {FILENAME} page 1 of 1 ...")
     for pno in pages:
         parms = get_page_output(
             doc, pno, margins, textflags, FILENAME, IGNORE_IMAGES, IGNORE_GRAPHICS
@@ -1212,7 +1219,6 @@ def extract_images_on_page_simple(page, parms, image_size_limit):
                 break
 
     return img_info
-
 
 def filter_small_images(page, parms, image_size_limit):
     img_info = []
