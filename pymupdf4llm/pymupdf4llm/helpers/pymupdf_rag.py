@@ -1253,7 +1253,7 @@ if __name__ == "__main__":
     import time
 
     try:
-        filename = "sample_document.pdf"
+        filename = f"{sys.argv[1]}"
     except IndexError:
         print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()
