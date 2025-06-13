@@ -77,6 +77,7 @@ def get_raw_lines(
         # sort ascending horizontally
         line.sort(key=lambda s: s["bbox"].x0)
         # join spans, delete duplicates
+        # underline differences are being ignored
         for i in range(len(line) - 1, 0, -1):  # iterate back to front
             s0 = line[i - 1]  # preceding span
             s1 = line[i]  # this span
@@ -86,9 +87,9 @@ def get_raw_lines(
             delta = s1["size"] * 0.1
             if s0["bbox"].x1 + delta < s1["bbox"].x0 or (
                 s0["flags"],
-                s0["char_flags"],
+                s0["char_flags"] & ~2,
                 s0["size"],
-            ) != (s1["flags"], s1["char_flags"], s1["size"]):
+            ) != (s1["flags"], s1["char_flags"] & ~2, s1["size"]):
                 continue  # no joining
             # We need to join bbox and text of two consecutive spans
             # On occasion, spans may also be duplicated.
@@ -116,8 +117,8 @@ def get_raw_lines(
                 sbbox = pymupdf.Rect(s["bbox"])  # span bbox as a Rect
                 if is_white(s["text"]):  # ignore white text
                     continue
-                # ignore invisible text
-                if s["alpha"] == 0 and ignore_invisible:
+                # Ignore invisible text. Type 3 font text is never invisible.
+                if s["font"] != "Unnamed-T3" and s["alpha"] == 0 and ignore_invisible:
                     continue
                 if abs(sbbox & clip) < abs(sbbox) * 0.8:  # if not in clip
                     continue

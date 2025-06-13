@@ -1,5 +1,24 @@
 # Change Log
 
+## Changes in version 0.0.25
+
+### Fixes:
+
+* [282](https://github.com/pymupdf/RAG/issues/282) - Content Duplication with the latest version
+* [281](https://github.com/pymupdf/RAG/issues/281) - Latest version of pymupdf4llm.to_markdown returns empty text for some PDFs.
+* [280](https://github.com/pymupdf/RAG/issues/280) - Cannot extract text when ignore_images=False, can extract otherwise.
+* [278](https://github.com/pymupdf/RAG/issues/278) - Title words are fragmented
+* [249](https://github.com/pymupdf/RAG/issues/249) - Title duplication problem in markdown format
+* [202](https://github.com/pymupdf/RAG/issues/202) - BAD RECT ISSUE
+
+### Other Changes:
+
+* The table module in package PyMuDDF has been: Its method `to_markdown()` will now output markdown-styled cell text. Previously, table cells were extracted as plain text only.
+
+* The class `TocHeaders` is now a top-level import and can now be directly used.
+
+* Text written with a `Type 3` font will now always be considered. Previously, this text was always treated as invisible and was hence suppressed.
+
 ## Changes in version 0.0.24
 
 ### Fixes:

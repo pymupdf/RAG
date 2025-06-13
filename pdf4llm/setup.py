@@ -13,11 +13,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
-requires = ["pymupdf4llm==0.0.24"]
+requires = ["pymupdf4llm==0.0.25"]
 
 setuptools.setup(
     name="pdf4llm",
-    version="0.0.24",
+    version="0.0.25",
     author="Artifex",
     author_email="support@artifex.com",
     description="PyMuPDF Utilities for LLM/RAG",
