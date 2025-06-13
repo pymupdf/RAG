@@ -171,10 +171,10 @@ class TocHeaders:
     full document to identify font sizes, it uses the document's Table Of
     Contents (TOC) to identify headers on pages.
     Like IdentifyHeaders, this also is no guarantee to find headers, but it
-    is a good change for appropriately build documents. In such cases, this
-    method can be very much faster and more accurate, because we can use the
-    hierarchy level of TOC items directly to ientify the header level.
-    Examples where this approach works very well are the Adobe PDF documents.
+    represents a good chance for appropriately built documents. In such cases,
+    this method can be very much faster and more accurate, because we can
+    directly use the hierarchy level of TOC items to ientify the header level.
+    Examples where this works very well are the Adobe PDF documents.
     """
 
     def __init__(self, doc: str):
@@ -195,14 +195,15 @@ class TocHeaders:
         Given a text span from a "dict"/"rawdict" extraction, determine the
         markdown header prefix string of 0 to n concatenated '#' characters.
         """
-        if page is None:
+        if not page:
             return ""
         # check if this page has TOC entries with an actual title
         my_toc = [t for t in self.TOC if t[1] and t[-1] == page.number + 1]
-        if not my_toc:
+        if not my_toc:  # no TOC items present on this page
             return ""
-        # check if the span matches a TOC entry
-        text = span["text"].strip()
+        # Check if the span matches a TOC entry. This must be done in the
+        # most forgiving way: exact matches are rare animals.
+        text = span["text"].strip()  # remove leading and trailing whitespace
         for t in my_toc:
             title = t[1].strip()  # title of TOC entry
             lvl = t[0]  # level of TOC entry
@@ -321,6 +322,7 @@ def to_markdown(
     extract_words=False,
     show_progress=False,
     use_glyphs=False,
+    ignore_alpha=False,
 ) -> str:
     """Process the document and return the text of the selected pages.
 
@@ -341,9 +343,10 @@ def to_markdown(
         table_strategy: choose table detection strategy
         graphics_limit: (int) if vector graphics count exceeds this, ignore all.
         ignore_code: (bool) suppress code-like formatting (mono-space fonts)
-        extract_words: (bool) include "words"-like output in page chunks
-        show_progress: (bool) print progress as each page is processed.
-        use_glyphs: (bool) replace the Invalid Unicode by glyph numbers.
+        extract_words: (bool, False) include "words"-like output in page chunks
+        show_progress: (bool, False) print progress as each page is processed.
+        use_glyphs: (bool, False) replace the Invalid Unicode by glyph numbers.
+        ignore_alpha: (bool, True) ignore text with alpha = 0 (transparent).
 
     """
     if write_images is False and embed_images is False and force_text is False:
@@ -372,6 +375,8 @@ def to_markdown(
     FONTSIZE_LIMIT = fontsize_limit
     IGNORE_IMAGES = ignore_images
     IGNORE_GRAPHICS = ignore_graphics
+    if doc.is_form_pdf or doc.has_annots():
+        doc.bake()
 
     # for reflowable documents allow making 1 page for the whole document
     if doc.is_reflowable:
@@ -394,7 +399,7 @@ def to_markdown(
         margins = (0, margins[0], 0, margins[1])
     if len(margins) != 4:
         raise ValueError("margins must be one, two or four floats")
-    elif not all([hasattr(m, "__float__") for m in margins]):
+    elif not all(hasattr(m, "__float__") for m in margins):
         raise ValueError("margin values must be floats")
 
     # If "hdr_info" is not an object with a method "get_header_id", scan the
@@ -587,44 +592,28 @@ def to_markdown(
             # make text string for the full line
             text = " ".join([s["text"] for s in spans])
 
-            # if line is a header, this will return multiple "#" characters,
-            # otherwise an empty string
-            hdr_string = max_header_id(spans, page=parms.page)  # a header?
-
             # full line strikeout?
             all_strikeout = all([s["char_flags"] & 1 for s in spans])
             # full line italic?
             all_italic = all([s["flags"] & 2 for s in spans])
             # full line bold?
-            all_bold = all([s["flags"] & 16 or s["char_flags"] & 8 for s in spans])
-
+            all_bold = all([(s["flags"] & 16) or (s["char_flags"] & 8) for s in spans])
             # full line mono-spaced?
-            if not IGNORE_CODE:
-                all_mono = all([s["flags"] & 8 for s in spans])
-            else:
-                all_mono = False
+            all_mono = all([s["flags"] & 8 for s in spans])
 
-            if all_mono and not hdr_string:
-                if not code:  # if not already in code output mode:
-                    out_string += "```\n"  # switch on "code" mode
-                    code = True
-                # compute approx. distance from left - assuming a width
-                # of 0.5*fontsize.
-                delta = int((lrect.x0 - clip.x0) / (spans[0]["size"] * 0.5))
-                indent = " " * delta
-
-                out_string += indent + text + "\n"
-                continue  # done with this line
+            # if line is a header, this will return multiple "#" characters,
+            # otherwise an empty string
+            hdr_string = max_header_id(spans, page=parms.page)  # a header?
 
             if hdr_string:  # if a header line skip the rest
                 if all_mono:
                     text = "`" + text + "`"
-                if all_strikeout:
-                    text = "~~" + text + "~~"
                 if all_italic:
-                    text = "*" + text + "*"
+                    text = "_" + text + "_"
                 if all_bold:
                     text = "**" + text + "**"
+                if all_strikeout:
+                    text = "~~" + text + "~~"
                 if hdr_string != prev_hdr_string:
                     out_string += hdr_string + text + "\n"
                 else:
@@ -636,6 +625,23 @@ def to_markdown(
                 continue
 
             prev_hdr_string = hdr_string
+
+            # start or extend a code block
+            if all_mono and not IGNORE_CODE:
+                if not code:  # if not already in code output mode:
+                    out_string += "```\n"  # switch on "code" mode
+                    code = True
+                # compute approx. distance from left - assuming a width
+                # of 0.5*fontsize.
+                delta = int((lrect.x0 - clip.x0) / (spans[0]["size"] * 0.5))
+                indent = " " * delta
+
+                out_string += indent + text + "\n"
+                continue  # done with this line
+
+            if code and not all_mono:
+                out_string += "```\n"  # switch off code mode
+                code = False
 
             span0 = spans[0]
             bno = span0["block"]  # block number of line
@@ -660,30 +666,30 @@ def to_markdown(
 
             for i, s in enumerate(spans):  # iterate spans of the line
                 # decode font properties
-                mono = s["flags"] & 8 and IGNORE_CODE is False
+                mono = s["flags"] & 8
                 bold = s["flags"] & 16 or s["char_flags"] & 8
                 italic = s["flags"] & 2
                 strikeout = s["char_flags"] & 1
 
-                if mono:
-                    # this is text in some monospaced font
-                    out_string += f"`{s['text'].strip()}` "
-                    continue
+                # if mono:
+                #     # this is text in some monospaced font
+                #     out_string += f"`{s['text'].strip()}` "
+                #     continue
 
                 prefix = ""
                 suffix = ""
+                if mono:
+                    prefix = "`" + prefix
+                    suffix += "`"
                 if bold:
                     prefix = "**" + prefix
                     suffix += "**"
                 if italic:
-                    prefix = "*" + prefix
-                    suffix += "*"
+                    prefix = "_" + prefix
+                    suffix += "_"
                 if strikeout:
                     prefix = "~~" + prefix
                     suffix += "~~"
-                if mono:
-                    prefix = "`" + prefix
-                    suffix += "`"
 
                 # convert intersecting link to markdown syntax
                 ltext = resolve_links(parms.links, s)
@@ -831,9 +837,12 @@ def to_markdown(
 
         For this to be true, all text must be written as "ignore-text".
         """
-        text_types = set([b[0] for b in page.get_bboxlog() if "text" in b[0]])
-        if text_types == {"ignore-text"}:
-            return True
+        try:
+            text_types = set([b[0] for b in page.get_bboxlog() if "text" in b[0]])
+            if text_types == {"ignore-text"}:
+                return True
+        except:
+            pass
         return False
 
     def get_bg_color(page):
@@ -934,7 +943,9 @@ def to_markdown(
         parms.graphics = []
         parms.words = []
         parms.line_rects = []
-        parms.accept_invisible = page_is_ocr(page)  # accept invisible text
+        parms.accept_invisible = (
+            page_is_ocr(page) or ignore_alpha
+        )  # accept invisible text
 
         # determine background color
         parms.bg_color = get_bg_color(page)
@@ -958,6 +969,8 @@ def to_markdown(
             img_info = []
         for i in range(len(img_info)):
             img_info[i]["bbox"] = pymupdf.Rect(img_info[i]["bbox"])
+
+        # filter out images that are too small or outside the clip
         img_info = [
             i
             for i in img_info
@@ -967,8 +980,19 @@ def to_markdown(
             and i["bbox"].width > 3
             and i["bbox"].height > 3
         ]
+
         # sort descending by image area size
         img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
+
+        # subset of images truly inside the clip
+        sane = [i for i in img_info if parms.clip not in i["bbox"].irect]
+        if len(sane) < len(img_info):  # found some
+            img_info = sane  # use those images instead
+            # output full page image
+            name = save_image(parms, parms.clip, "full")
+            if name:
+                parms.md_string += GRAPHICS_TEXT % name
+
         img_info = img_info[:30]  # only accept the largest up to 30 images
         # run from back to front (= small to large)
         for i in range(len(img_info) - 1, 0, -1):
@@ -1152,7 +1176,7 @@ def to_markdown(
         0
         | mupdf.FZ_STEXT_CLIP
         | mupdf.FZ_STEXT_ACCURATE_BBOXES
-        | mupdf.FZ_STEXT_IGNORE_ACTUALTEXT
+        # | mupdf.FZ_STEXT_IGNORE_ACTUALTEXT
         | 32768  # mupdf.FZ_STEXT_COLLECT_STYLES
     )
     # optionally replace 0xFFFD by glyph number
@@ -1253,7 +1277,7 @@ if __name__ == "__main__":
     import time
 
     try:
-        filename = "sample_document.pdf"
+        filename = sys.argv[1]
     except IndexError:
         print(f"Usage:\npython {os.path.basename(__file__)} input.pdf")
         sys.exit()
@@ -1284,11 +1308,6 @@ if __name__ == "__main__":
     md_string = to_markdown(
         doc,
         pages=pages,
-        # write_images=True,
-        force_text=True,
-        ignore_images=True,
-        ignore_graphics=True,
-        table_strategy=None,
     )
     FILENAME = doc.name
     # output to a text file with extension ".md"

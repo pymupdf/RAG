@@ -1,6 +1,6 @@
-from .helpers.pymupdf_rag import IdentifyHeaders, to_markdown
+from .helpers.pymupdf_rag import IdentifyHeaders, TocHeaders, to_markdown
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 version = __version__
 version_tuple = tuple(map(int, version.split(".")))
 
