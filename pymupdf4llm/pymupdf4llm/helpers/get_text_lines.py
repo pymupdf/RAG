@@ -118,7 +118,7 @@ def get_raw_lines(
                 if is_white(s["text"]):  # ignore white text
                     continue
                 # Ignore invisible text. Type 3 font text is never invisible.
-                if s["font"] != "Unnamed-T3" and s["alpha"] == 0 and ignore_invisible:
+                if s["font"] != "Unnamed-T3" and s.get("alpha", 255) == 0 and ignore_invisible:
                     continue
                 if abs(sbbox & clip) < abs(sbbox) * 0.8:  # if not in clip
                     continue
