@@ -13,11 +13,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
-requires = ["pymupdf4llm==0.0.25"]
+requires = ["pymupdf4llm==0.0.26"]
 
 setuptools.setup(
     name="pdf4llm",
-    version="0.0.25",
+    version="0.0.26",
     author="Artifex",
     author_email="support@artifex.com",
     description="PyMuPDF Utilities for LLM/RAG",
@@ -25,7 +25,8 @@ setuptools.setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     install_requires=requires,
-    license="GNU AFFERO GPL 3.0",
+    python_requires=">=3.9",
+    license="Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License",
     url="https://github.com/pymupdf/RAG",
     classifiers=classifiers,
     package_data={
