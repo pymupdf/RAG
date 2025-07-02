@@ -1,6 +1,6 @@
 import os
-
 import setuptools
+from pathlib import Path
 
 setup_py_cwd = os.path.dirname(__file__)
 with open(os.path.join(setup_py_cwd, "README.md"), encoding="utf-8") as f:
@@ -13,11 +13,18 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Utilities",
 ]
-requires = ["pymupdf>=1.26.1"]
+
+version = "0.0.26"
+requires = ["pymupdf>=1.26.3"]
+
+text = requires[0].split("=")[1]
+text = tuple(map(int, text.split(".")))
+text = f"MINIMUM_PYMUPDF_VERSION = {text}\nVERSION = '{version}'\n"
+Path("pymupdf4llm/versions_file.py").write_text(text)
 
 setuptools.setup(
     name="pymupdf4llm",
-    version="0.0.25",
+    version=version,
     author="Artifex",
     author_email="support@artifex.com",
     description="PyMuPDF Utilities for LLM/RAG",
@@ -25,7 +32,8 @@ setuptools.setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     install_requires=requires,
-    license="GNU AFFERO GPL 3.0",
+    python_requires=">=3.9",
+    license="Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License",
     url="https://github.com/pymupdf/RAG",
     classifiers=classifiers,
     package_data={

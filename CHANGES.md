@@ -1,5 +1,30 @@
 # Change Log
 
+## Changes in version 0.0.26
+
+### Fixes:
+
+* [282](https://github.com/pymupdf/RAG/issues/282) - Content Duplication with the latest version
+* [281](https://github.com/pymupdf/RAG/issues/281) - Latest version of pymupdf4llm.to_markdown returns empty text for some PDFs.
+* [280](https://github.com/pymupdf/RAG/issues/280) - Cannot extract text when ignore_images=False, can extract otherwise.
+* [278](https://github.com/pymupdf/RAG/issues/278) - Title words are fragmented
+* [249](https://github.com/pymupdf/RAG/issues/249) - Title duplication problem in markdown format
+* [202](https://github.com/pymupdf/RAG/issues/202) - BAD RECT ISSUE
+
+### Other Changes:
+
+* The table module in package PyMuPDF has been modified: Its method `to_markdown()` will now output markdown-styled cell text. Previously, table cells were extracted as plain text only.
+
+* The class `TocHeaders` is now a top-level import and can now be directly used.
+
+* Method `to_markdown` has a new parameter `detect_bg_color=True` which guesses the page's background color. If detection is successful, vectors having this fill color are ignored (default). Setting this to `False` will "fill" vectors to always be considered in vector graphics detection.
+
+* Text written with a `Type 3` font will now always be considered. Previously, this text was always treated as invisible and was hence suppressed.
+
+* The package now contains the license file GNU Affero GPL 3.0 to ease distribution (see LICENSE). It also clarifies that PyMuPDF4LLM is dual licensed under GNU AGPL 3.0 and individual commercial licenses.
+
+* There is a new file `versions_file.py` which contains version information. This is used to ensure the presence of a minimum PyMuPDF version at import time.
+
 ## Changes in version 0.0.25
 
 ### Fixes:

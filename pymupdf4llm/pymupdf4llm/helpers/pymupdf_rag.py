@@ -268,6 +268,10 @@ def is_significant(box, paths):
     nbox = box + (d, d, -d, -d)  # nbox covers 90% of box interior
     # paths contained in, but not equal to box:
     my_paths = [p for p in paths if p["rect"] in box and p["rect"] != box]
+    widths = set(round(p["rect"].width) for p in my_paths) | {round(box.width)}
+    heights = set(round(p["rect"].height) for p in my_paths) | {round(box.height)}
+    if len(widths) == 1 or len(heights) == 1:
+        return False  # all paths are horizontal or vertical lines / rectangles
     for p in my_paths:
         rect = p["rect"]
         if (
@@ -305,6 +309,7 @@ def to_markdown(
     embed_images=False,
     ignore_images=False,
     ignore_graphics=False,
+    detect_bg_color=True,
     image_path="",
     image_format="png",
     image_size_limit=0.05,
@@ -375,6 +380,7 @@ def to_markdown(
     FONTSIZE_LIMIT = fontsize_limit
     IGNORE_IMAGES = ignore_images
     IGNORE_GRAPHICS = ignore_graphics
+    DETECT_BG_COLOR = detect_bg_color
     if doc.is_form_pdf or doc.has_annots():
         doc.bake()
 
@@ -588,9 +594,14 @@ def to_markdown(
                         parms.written_images.append(i)
 
             parms.line_rects.append(lrect)
-
+            # if line rect is far away from the previous one, add a line break
+            if (
+                len(parms.line_rects) > 1
+                and lrect.y1 - parms.line_rects[-2].y1 > lrect.height * 1.5
+            ):
+                out_string += "\n"
             # make text string for the full line
-            text = " ".join([s["text"] for s in spans])
+            text = " ".join([s["text"] for s in spans]).strip()
 
             # full line strikeout?
             all_strikeout = all([s["char_flags"] & 1 for s in spans])
@@ -671,11 +682,6 @@ def to_markdown(
                 italic = s["flags"] & 2
                 strikeout = s["char_flags"] & 1
 
-                # if mono:
-                #     # this is text in some monospaced font
-                #     out_string += f"`{s['text'].strip()}` "
-                #     continue
-
                 prefix = ""
                 suffix = ""
                 if mono:
@@ -713,7 +719,7 @@ def to_markdown(
         if code:
             out_string += "```\n"  # switch of code mode
             code = False
-
+        out_string += "\n\n"
         return (
             out_string.replace(" \n", "\n").replace("  ", " ").replace("\n\n\n", "\n\n")
         )
@@ -948,7 +954,7 @@ def to_markdown(
         )  # accept invisible text
 
         # determine background color
-        parms.bg_color = get_bg_color(page)
+        parms.bg_color = get_bg_color(page) if DETECT_BG_COLOR else None
 
         left, top, right, bottom = margins
         parms.clip = page.rect + (left, top, -right, -bottom)
@@ -985,7 +991,9 @@ def to_markdown(
         img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
 
         # subset of images truly inside the clip
-        sane = [i for i in img_info if parms.clip not in i["bbox"].irect]
+        if img_info:
+            img_max_size = abs(parms.clip) * 0.9
+            sane = [i for i in img_info if abs(i["bbox"] & parms.clip) < img_max_size]
         if len(sane) < len(img_info):  # found some
             img_info = sane  # use those images instead
             # output full page image
