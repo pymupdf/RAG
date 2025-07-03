@@ -4,6 +4,10 @@
 
 ### Fixes:
 
+* [289](https://github.com/pymupdf/RAG/issues/289) - Content Duplication with the latest version
+* [275](https://github.com/pymupdf/RAG/issues/275) - Text with background missing from output
+* [262](https://github.com/pymupdf/RAG/issues/262) - Markdown error parsing
+
 ### Other Changes:
 
 * The table module in package PyMuPDF has been modified: Its method `to_markdown()` will now output markdown-styled cell text. Previously, table cells were extracted as plain text only.
