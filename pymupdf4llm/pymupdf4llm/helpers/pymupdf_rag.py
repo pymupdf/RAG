@@ -316,6 +316,7 @@ def to_markdown(
     filename=None,
     force_text=True,
     page_chunks=False,
+    page_separators=False,
     margins=0,
     dpi=150,
     page_width=612,
@@ -341,6 +342,7 @@ def to_markdown(
         image_format: (str) use this image format. Choose a supported one.
         force_text: (bool) output text despite of image background.
         page_chunks: (bool) whether to segment output by page.
+        page_separators: (bool) whether to include page separators in output.
         margins: omit content overlapping margin areas.
         dpi: (int) desired resolution for generated images.
         page_width: (float) assumption if page layout is variable.
@@ -381,7 +383,7 @@ def to_markdown(
     IGNORE_IMAGES = ignore_images
     IGNORE_GRAPHICS = ignore_graphics
     DETECT_BG_COLOR = detect_bg_color
-    if doc.is_form_pdf or doc.has_annots():
+    if doc.is_form_pdf or (doc.is_pdf and doc.has_annots()):
         doc.bake()
 
     # for reflowable documents allow making 1 page for the whole document
@@ -560,6 +562,7 @@ def to_markdown(
                         )
                         parms.line_rects.extend(cells)
                     parms.written_tables.append(i)
+                    prev_hdr_string = None
 
             # ------------------------------------------------------------
             # Pick up images / graphics ABOVE this text block
@@ -592,6 +595,7 @@ def to_markdown(
                             if not is_white(img_txt):
                                 out_string += img_txt
                         parms.written_images.append(i)
+                        prev_hdr_string = None
 
             parms.line_rects.append(lrect)
             # if line rect is far away from the previous one, add a line break
@@ -751,7 +755,7 @@ def to_markdown(
             ):
                 if i in parms.written_tables:
                     continue
-                this_md += parms.tabs[i].to_markdown(clean=False)
+                this_md += parms.tabs[i].to_markdown(clean=False) + "\n"
                 if EXTRACT_WORDS:
                     # for "words" extraction, add table cells as line rects
                     cells = sorted(
@@ -772,7 +776,7 @@ def to_markdown(
             for i, trect in parms.tab_rects.items():
                 if i in parms.written_tables:
                     continue
-                this_md += parms.tabs[i].to_markdown(clean=False)
+                this_md += parms.tabs[i].to_markdown(clean=False) + "\n"
                 if EXTRACT_WORDS:
                     # for "words" extraction, add table cells as line rects
                     cells = sorted(
@@ -954,7 +958,7 @@ def to_markdown(
         )  # accept invisible text
 
         # determine background color
-        parms.bg_color = get_bg_color(page) if DETECT_BG_COLOR else None
+        parms.bg_color = None if not DETECT_BG_COLOR else get_bg_color(page)
 
         left, top, right, bottom = margins
         parms.clip = page.rect + (left, top, -right, -bottom)
@@ -994,12 +998,12 @@ def to_markdown(
         if img_info:
             img_max_size = abs(parms.clip) * 0.9
             sane = [i for i in img_info if abs(i["bbox"] & parms.clip) < img_max_size]
-        if len(sane) < len(img_info):  # found some
-            img_info = sane  # use those images instead
-            # output full page image
-            name = save_image(parms, parms.clip, "full")
-            if name:
-                parms.md_string += GRAPHICS_TEXT % name
+            if len(sane) < len(img_info):  # found some
+                img_info = sane  # use those images instead
+                # output full page image
+                name = save_image(parms, parms.clip, "full")
+                if name:
+                    parms.md_string += GRAPHICS_TEXT % name
 
         img_info = img_info[:30]  # only accept the largest up to 30 images
         # run from back to front (= small to large)
@@ -1024,31 +1028,31 @@ def to_markdown(
         # Locate all tables on page
         parms.written_tables = []  # stores already written tables
         omitted_table_rects = []
+        parms.tabs = []
         if IGNORE_GRAPHICS or not table_strategy:
             # do not try to extract tables
-            parms.tabs = None
+            pass
         else:
-            parms.tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
-            # remove tables with too few rows or columns
-            for i in range(len(parms.tabs.tables) - 1, -1, -1):
-                t = parms.tabs.tables[i]
+            tabs = page.find_tables(clip=parms.clip, strategy=table_strategy)
+            for t in tabs.tables:
+                # remove tables with too few rows or columns
                 if t.row_count < 2 or t.col_count < 2:
                     omitted_table_rects.append(pymupdf.Rect(t.bbox))
-                    del parms.tabs.tables[i]
-            parms.tabs.tables.sort(key=lambda t: (t.bbox[0], t.bbox[1]))
+                    continue
+                parms.tabs.append(t)
+            parms.tabs.sort(key=lambda t: (t.bbox[0], t.bbox[1]))
 
         # Make a list of table boundary boxes.
         # Must include the header bbox (which may exist outside tab.bbox)
         tab_rects = {}
-        if parms.tabs is not None:
-            for i, t in enumerate(parms.tabs.tables):
-                tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
-                tab_dict = {
-                    "bbox": tuple(tab_rects[i]),
-                    "rows": t.row_count,
-                    "columns": t.col_count,
-                }
-                parms.tables.append(tab_dict)
+        for i, t in enumerate(parms.tabs):
+            tab_rects[i] = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
+            tab_dict = {
+                "bbox": tuple(tab_rects[i]),
+                "rows": t.row_count,
+                "columns": t.col_count,
+            }
+            parms.tables.append(tab_dict)
         parms.tab_rects = tab_rects
         # list of table rectangles
         parms.tab_rects0 = list(tab_rects.values())
@@ -1064,15 +1068,12 @@ def to_markdown(
                 and p["rect"].width < parms.clip.width
                 and p["rect"].height < parms.clip.height
                 and (p["rect"].width > 3 or p["rect"].height > 3)
-                and not (p["fill"] == parms.bg_color and p["fill"] != None)
-                and not intersects_rects(
-                    p["rect"], parms.tab_rects0 + omitted_table_rects
-                )
+                and not (p["type"] == "f" and p["fill"] == parms.bg_color)
+                and not intersects_rects(p["rect"], parms.tab_rects0)
                 and not intersects_rects(p["rect"], parms.annot_rects)
             ]
         else:
             paths = []
-
         # catch too-many-graphics situation
         if GRAPHICS_LIMIT and len(paths) > GRAPHICS_LIMIT:
             paths = []
@@ -1168,6 +1169,9 @@ def to_markdown(
         else:
             words = []
         parms.words = words
+        if page_separators:
+            # add page separators to output
+            parms.md_string += f"\n\n--- end of page={parms.page.number} ---\n\n"
         return parms
 
     if page_chunks is False:
