@@ -1,5 +1,18 @@
 # Change Log
 
+## Changes in version 0.0.27
+
+### Fixes:
+
+* [296](https://github.com/pymupdf/RAG/issues/296) - [Bug] A specific diagram recognized as significant ...
+* [294](https://github.com/pymupdf/RAG/issues/294) - Unable to extract images from Page
+* [272](https://github.com/pymupdf/RAG/issues/272) - Disappeared page breaks
+
+### Other Changes:
+
+* Added new parameter to `to_markdown`: `page_separators=False`. If `True` and `page_chunks=False` a line like `--- end of page=nnn ---` is appended to each pages markdown text. The page number is 0-based. Intended for debugging purposes.
+
+
 ## Changes in version 0.0.26
 
 ### Fixes:
@@ -14,7 +27,7 @@
 
 * The class `TocHeaders` is now a top-level import and can now be directly used.
 
-* Method `to_markdown` has a new parameter `detect_bg_color=True` which guesses the page's background color. If detection is successful, vectors having this fill color are ignored (default). Setting this to `False` will "fill" vectors to always be considered in vector graphics detection.
+* Method `to_markdown` has a new parameter `detect_bg_color=True` (default) which guesses the page's background color. If a background is detected, fill-only vectors having this color are ignored. `False` will always consider "fill" vectors in vector graphics detection.
 
 * Text written with a `Type 3` font will now always be considered. Previously, this text was always treated as invisible and was hence suppressed.
 
